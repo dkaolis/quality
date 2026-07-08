@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Ρυθμίσεις{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-gear"></i> Ρυθμίσεις</h2>
+</div>
+
+<div class="card mb-3" style="max-width: 700px">
+    <div class="card-header py-2">Γενικές</div>
+    <div class="card-body">
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Όνομα οργανισμού</label>
+                    <input type="text" name="org_name" class="form-control" value="{{ settings.org_name }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Σύντομο όνομα</label>
+                    <input type="text" name="org_short" class="form-control" value="{{ settings.org_short }}">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Τίτλος εφαρμογής</label>
+                    <input type="text" name="app_title" class="form-control" value="{{ settings.app_title }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Λήξη session (λεπτά)</label>
+                    <input type="number" name="session_timeout" class="form-control" min="10" value="{{ settings.session_timeout }}">
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card" style="max-width: 700px">
+    <div class="card-header py-2">Βάση δεδομένων</div>
+    <div class="card-body" style="font-size:0.87rem">
+        <p class="mb-1">Τρέχουσα λειτουργία:
+            {% if use_mysql %}
+            <span class="badge bg-primary">MySQL</span> — {{ settings.db_host }}:{{ settings.db_port }}/{{ settings.db_name }}
+            {% else %}
+            <span class="badge bg-secondary">SQLite</span> — τοπικό αρχείο <code>quality.db</code>
+            {% endif %}
+        </p>
+        <p class="text-muted mb-0">Η αλλαγή γίνεται στο αρχείο <code>settings.json</code> (κλειδιά
+            <code>db_host</code>, <code>db_port</code>, <code>db_user</code>, <code>db_pass</code>, <code>db_name</code>)
+            και απαιτεί επανεκκίνηση της εφαρμογής. Κενό <code>db_host</code> = SQLite.</p>
+    </div>
+</div>
+{% endblock %}

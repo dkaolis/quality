@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{% if u %}Επεξεργασία{% else %}Νέος{% endif %} Χρήστης{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-person"></i> {% if u %}Επεξεργασία Χρήστη: {{ u.username }}{% else %}Νέος Χρήστης{% endif %}</h2>
+</div>
+<div class="card" style="max-width: 700px">
+    <div class="card-body">
+        <form method="post">
+            <div class="row g-3">
+                {% if not u %}
+                <div class="col-md-6">
+                    <label class="form-label">Όνομα χρήστη *</label>
+                    <input type="text" name="username" class="form-control" required autocomplete="off">
+                </div>
+                {% endif %}
+                <div class="col-md-6">
+                    <label class="form-label">Ονοματεπώνυμο *</label>
+                    <input type="text" name="full_name" class="form-control" required value="{{ u.full_name if u else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{% if u %}Νέος κωδικός <small class="text-muted">(κενό = χωρίς αλλαγή)</small>{% else %}Κωδικός * (≥6 χαρ.){% endif %}</label>
+                    <input type="password" name="password" class="form-control" {% if not u %}required{% endif %} autocomplete="new-password">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Ρόλος</label>
+                    <select name="role" class="form-select">
+                        {% for k, v in ROLES.items() %}
+                        <option value="{{ k }}" {% if u and u.role == k %}selected{% elif not u and k == 'quality_officer' %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Νοσηλευτήριο</label>
+                    <select name="hospital_code" class="form-select select2">
+                        <option value="">—</option>
+                        {% for h in hospitals %}
+                        <option value="{{ h.code }}" {% if u and u.hospital_code == h.code %}selected{% endif %}>{{ h.name_el }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Απαιτείται για τον ρόλο «Λειτουργός Διασφάλισης Ποιότητας» — ορίζει ποια δεδομένα επεξεργάζεται.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ u.email if u else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Τηλέφωνο</label>
+                    <input type="text" name="phone" class="form-control" value="{{ u.phone if u else '' }}">
+                </div>
+                {% if u %}
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="active" id="active" {% if u.active %}checked{% endif %}>
+                        <label class="form-check-label" for="active">Ενεργός</label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+                <a href="{{ url_for('users_list') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

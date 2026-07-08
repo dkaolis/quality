@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Πίνακας Συμμόρφωσης{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-grid-3x3-gap"></i> Πίνακας Συμμόρφωσης</h2>
+        <div class="text-muted" style="font-size:0.85rem">Τελευταία αξιολόγηση ανά διαδικασία & νοσηλευτήριο. Κλικ σε κελί για νέα αξιολόγηση.</div>
+    </div>
+    <a href="{{ url_for('compliance_new') }}" class="btn btn-success btn-action">
+        <i class="bi bi-plus-lg"></i> Νέα Αξιολόγηση
+    </a>
+</div>
+
+<div class="mb-2" style="font-size:0.78rem">
+    <span class="badge cell-ok text-dark border">Πλήρης Συμμόρφωση</span>
+    <span class="badge cell-warn text-dark border">Μερική Συμμόρφωση</span>
+    <span class="badge cell-alert text-dark border">Μη Συμμόρφωση</span>
+    <span class="badge cell-empty text-dark border">Δεν αξιολογήθηκε</span>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered heat-table mb-0">
+                <thead><tr>
+                    <th style="min-width:280px">Διαδικασία</th>
+                    {% for h in hospitals %}<th title="{{ h.name_el }}">{{ h.code }}</th>{% endfor %}
+                </tr></thead>
+                <tbody>
+                {% for row in matrix %}
+                <tr>
+                    <td><strong>{{ row.proc.code }}</strong> {{ row.proc.name }}</td>
+                    {% for c in row.cells %}
+                    {% set cls = 'cell-empty' %}
+                    {% if c.a %}
+                        {% set cls = 'cell-ok' if c.a.status == 'compliant' else ('cell-warn' if c.a.status == 'partial' else 'cell-alert') %}
+                    {% endif %}
+                    <td class="{{ cls }}" style="cursor:pointer"
+                        onclick="window.location='{{ url_for('compliance_new', procedure=row.proc.id, hospital=c.hospital) }}'"
+                        title="{{ row.proc.name }} — {{ c.hospital }}{% if c.a %} · {{ COMPLIANCE_STATUS[c.a.status][0] }} ({{ c.a.assess_date|fmtdate }}){% if c.a.score is not none %} · {{ c.a.score }}%{% endif %}{% else %} · Δεν αξιολογήθηκε{% endif %}">
+                        {% if c.a %}{{ c.a.score if c.a.score is not none else {'compliant':'Π','partial':'Μ','non_compliant':'Χ'}[c.a.status] }}{% else %}·{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% else %}
+                <tr><td class="text-center text-muted py-3">Δεν υπάρχουν ενεργές διαδικασίες.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{% if ins %}Επεξεργασία{% else %}Νέα{% endif %} Επιθεώρηση{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-search"></i> {% if ins %}Επεξεργασία Επιθεώρησης{% else %}Νέα Επιθεώρηση{% endif %}</h2>
+</div>
+<div class="card" style="max-width: 900px">
+    <div class="card-body">
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Νοσηλευτήριο *</label>
+                    <select name="hospital_code" class="form-select select2" required>
+                        {% for h in hospitals %}
+                        <option value="{{ h.code }}"
+                            {% if (ins and ins.hospital_code == h.code) or (not ins and session.hospital_code == h.code) %}selected{% endif %}>
+                            {{ h.name_el }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ημερομηνία *</label>
+                    <input type="date" name="inspection_date" class="form-control" required
+                           value="{{ ins.inspection_date|fmtdate if ins else today }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Τύπος επιθεώρησης</label>
+                    <select name="itype" class="form-select">
+                        {% for t in types %}
+                        <option value="{{ t }}" {% if ins and ins.itype == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Φορέας επιθεώρησης</label>
+                    <input type="text" name="body" class="form-control" placeholder="π.χ. Μονάδα Ποιότητας, Υπ. Υγείας, φορέας πιστοποίησης"
+                           value="{{ ins.body if ins else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Αντικείμενο / Πεδίο</label>
+                    <input type="text" name="scope" class="form-control" value="{{ ins.scope if ins else '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Σοβαρά ευρήματα</label>
+                    <input type="number" name="findings_major" class="form-control" min="0"
+                           value="{{ ins.findings_major if ins else 0 }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Δευτερεύοντα</label>
+                    <input type="number" name="findings_minor" class="form-control" min="0"
+                           value="{{ ins.findings_minor if ins else 0 }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Παρατηρήσεις</label>
+                    <input type="number" name="observations" class="form-control" min="0"
+                           value="{{ ins.observations if ins else 0 }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Βαθμολογία (προαιρετικά)</label>
+                    <input type="text" name="score" class="form-control" inputmode="decimal"
+                           value="{{ ins.score|fmtnum if ins and ins.score is not none else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Κατάσταση</label>
+                    <select name="status" class="form-select">
+                        <option value="open" {% if ins and ins.status == 'open' %}selected{% endif %}>Ανοικτή</option>
+                        <option value="closed" {% if ins and ins.status == 'closed' %}selected{% endif %}>Κλεισμένη</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Σύνοψη ευρημάτων</label>
+                    <textarea name="summary" class="form-control" rows="4">{{ ins.summary if ins else '' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Διορθωτικές ενέργειες / Σχέδιο δράσης</label>
+                    <textarea name="actions" class="form-control" rows="4">{{ ins.actions if ins else '' }}</textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+                <a href="{{ url_for('inspections_list') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

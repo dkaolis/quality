@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Σύγκριση & Τάσεις{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-graph-up-arrow"></i> Σύγκριση & Τάσεις Δεικτών</h2>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <select name="indicator" class="form-select form-select-sm select2">
+                    {% for i in indicators %}
+                    <option value="{{ i.id }}" {% if i.id == ind.id %}selected{% endif %}>{{ i.code }} — {{ i.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="year" class="form-select form-select-sm">
+                    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat"></i> Εμφάνιση</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="alert alert-light border py-2" style="font-size:0.85rem">
+    <strong>{{ ind.code }} — {{ ind.name }}</strong>
+    {% if ind.unit %} ({{ ind.unit }}){% endif %}
+    {% if limits %} · {{ limits }}{% endif %}
+    · {{ DIRECTIONS.get(ind.direction, '') }}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header py-2">Μηνιαία εξέλιξη {{ year }}</div>
+            <div class="card-body">
+                {% if datasets %}<canvas id="lineChart" height="110"></canvas>
+                {% else %}<div class="text-muted text-center py-4">Δεν υπάρχουν καταχωρήσεις για το {{ year }}.</div>{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-2">Μέση τιμή έτους ανά νοσηλευτήριο</div>
+            <div class="card-body">
+                {% if avg_data %}<canvas id="barChart" height="220"></canvas>
+                {% else %}<div class="text-muted text-center py-4">—</div>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2">Αναλυτικός πίνακας {{ year }}
+        <span class="ms-2" style="font-size:0.75rem">
+            <span class="badge cell-ok text-dark border">εντός στόχου</span>
+            <span class="badge cell-warn text-dark border">εκτός στόχου</span>
+            <span class="badge cell-alert text-dark border">εκτός ορίων</span>
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered heat-table mb-0">
+                <thead><tr>
+                    <th>Νοσηλευτήριο</th>
+                    {% for m in range(1, 13) %}<th>{{ MONTHS_SHORT[m] }}</th>{% endfor %}
+                    <th>Μ.Ο. {{ year - 1 }}</th>
+                </tr></thead>
+                <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.hospital.name_el }}</td>
+                    {% for c in row.cells %}
+                    <td class="{% if c.value is none %}cell-empty{% elif c.status == 'ok' %}cell-ok{% elif c.status == 'warn' %}cell-warn{% else %}cell-alert{% endif %}">
+                        {{ c.value|fmtnum if c.value is not none else '·' }}
+                    </td>
+                    {% endfor %}
+                    <td class="text-muted">{{ prev_avg.get(row.hospital.code)|fmtnum if prev_avg.get(row.hospital.code) is not none else '—' }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% if datasets %}
+const dsets = {{ datasets|tojson }};
+const lineData = {
+    labels: {{ MONTHS_SHORT.values()|list|tojson }},
+    datasets: dsets.map((d, i) => ({
+        label: d.label, data: d.data, spanGaps: true, tension: 0.25,
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length]
+    }))
+};
+{% if ind.target_value is not none %}
+lineData.datasets.push({ label: 'Στόχος', data: Array(12).fill({{ ind.target_value }}),
+    borderColor: '#16a34a', borderDash: [6,4], pointRadius: 0 });
+{% endif %}
+{% if ind.limit_high is not none %}
+lineData.datasets.push({ label: 'Άνω όριο', data: Array(12).fill({{ ind.limit_high }}),
+    borderColor: '#dc2626', borderDash: [3,3], pointRadius: 0 });
+{% endif %}
+{% if ind.limit_low is not none %}
+lineData.datasets.push({ label: 'Κάτω όριο', data: Array(12).fill({{ ind.limit_low }}),
+    borderColor: '#dc2626', borderDash: [3,3], pointRadius: 0 });
+{% endif %}
+new Chart(document.getElementById('lineChart'), {
+    type: 'line', data: lineData,
+    options: { responsive: true, interaction: { mode: 'index', intersect: false },
+               plugins: { legend: { labels: { font: { size: 11 } } } } }
+});
+{% endif %}
+{% if avg_data %}
+new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ avg_labels|tojson }},
+        datasets: [{ label: 'Μ.Ο. {{ year }}', data: {{ avg_data|tojson }},
+                     backgroundColor: {{ avg_labels|tojson }}.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]) }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+});
+{% endif %}
+</script>
+{% endblock %}

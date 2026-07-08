@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Δείκτες Ποιότητας{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-list-check"></i> Ορισμοί Δεικτών Ποιότητας</h2>
+    {% if session.role in ('admin', 'central') %}
+    <a href="{{ url_for('indicator_new') }}" class="btn btn-success btn-action">
+        <i class="bi bi-plus-lg"></i> Νέος Δείκτης
+    </a>
+    {% endif %}
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto"><label class="form-label mb-0">Κατηγορία:</label></div>
+            <div class="col-md-4">
+                <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Όλες</option>
+                    {% for c in categories %}
+                    <option value="{{ c }}" {% if c == sel_category %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.87rem">
+                <thead><tr>
+                    <th>Κωδικός</th><th>Δείκτης</th><th>Κατηγορία</th><th>Μονάδα</th>
+                    <th>Κατεύθυνση</th><th>Στόχος / Όρια</th><th>Συχνότητα</th><th>Ενεργός</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for i in indicators %}
+                <tr {% if not i.active %}class="text-muted"{% endif %}>
+                    <td class="fw-bold">{{ i.code }}</td>
+                    <td><a href="{{ url_for('indicator_view', ind_id=i.id) }}">{{ i.name }}</a></td>
+                    <td>{{ i.category }}</td>
+                    <td>{{ i.unit or '—' }}</td>
+                    <td style="font-size:0.8rem">{{ DIRECTIONS.get(i.direction, i.direction) }}</td>
+                    <td style="font-size:0.8rem">{{ i.limits or '—' }}</td>
+                    <td>{{ FREQUENCIES.get(i.frequency, i.frequency) }}</td>
+                    <td>{% if i.active %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+                    <td class="text-end">
+                        {% if session.role in ('admin', 'central') %}
+                        <a href="{{ url_for('indicator_edit', ind_id=i.id) }}" class="btn btn-sm btn-outline-secondary" title="Επεξεργασία">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center text-muted py-3">Δεν υπάρχουν δείκτες.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

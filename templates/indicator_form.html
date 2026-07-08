@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{% if ind %}Επεξεργασία{% else %}Νέος{% endif %} Δείκτης{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-list-check"></i> {% if ind %}Επεξεργασία Δείκτη {{ ind.code }}{% else %}Νέος Δείκτης Ποιότητας{% endif %}</h2>
+</div>
+<div class="card" style="max-width: 900px">
+    <div class="card-body">
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Κωδικός *</label>
+                    <input type="text" name="code" class="form-control" required value="{{ ind.code if ind else '' }}">
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label">Όνομα δείκτη *</label>
+                    <input type="text" name="name" class="form-control" required value="{{ ind.name if ind else '' }}">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Κατηγορία</label>
+                    <input type="text" name="category" class="form-control" list="cat-list"
+                           value="{{ ind.category if ind else 'Γενικοί' }}">
+                    <datalist id="cat-list">
+                        <option>Κλινική Ασφάλεια</option><option>Κλινική Αποτελεσματικότητα</option>
+                        <option>Έλεγχος Λοιμώξεων</option><option>Εμπειρία Ασθενή</option>
+                        <option>Πρόσβαση & Ροή Ασθενών</option><option>Χειρουργική Δραστηριότητα</option>
+                        <option>Τεκμηρίωση</option><option>Γενικοί</option>
+                    </datalist>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Μονάδα μέτρησης</label>
+                    <input type="text" name="unit" class="form-control" placeholder="%, ‰, λεπτά…"
+                           value="{{ ind.unit if ind else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Συχνότητα καταχώρησης</label>
+                    <select name="frequency" class="form-select">
+                        {% for k, v in FREQUENCIES.items() %}
+                        <option value="{{ k }}" {% if ind and ind.frequency == k %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Κατεύθυνση αξιολόγησης</label>
+                    <select name="direction" class="form-select">
+                        {% for k, v in DIRECTIONS.items() %}
+                        <option value="{{ k }}" {% if ind and ind.direction == k %}selected{% endif %}>{{ v }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Στόχος</label>
+                    <input type="text" name="target_value" class="form-control" inputmode="decimal"
+                           value="{{ ind.target_value|fmtnum if ind and ind.target_value is not none else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Κάτω όριο <small class="text-muted">(alarm αν <)</small></label>
+                    <input type="text" name="limit_low" class="form-control" inputmode="decimal"
+                           value="{{ ind.limit_low|fmtnum if ind and ind.limit_low is not none else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Άνω όριο <small class="text-muted">(alarm αν >)</small></label>
+                    <input type="text" name="limit_high" class="form-control" inputmode="decimal"
+                           value="{{ ind.limit_high|fmtnum if ind and ind.limit_high is not none else '' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Περιγραφή / Ορισμός (αριθμητής, παρονομαστής, πηγή δεδομένων)</label>
+                    <textarea name="description" class="form-control" rows="3">{{ ind.description if ind else '' }}</textarea>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Σειρά ταξινόμησης</label>
+                    <input type="number" name="sort_order" class="form-control" value="{{ ind.sort_order if ind else 0 }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="active" id="active"
+                               {% if not ind or ind.active %}checked{% endif %}>
+                        <label class="form-check-label" for="active">Ενεργός</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+                <a href="{{ url_for('indicators_list') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ ind.code }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-graph-up"></i> {{ ind.code }} — {{ ind.name }}</h2>
+        <div class="text-muted" style="font-size:0.85rem">
+            {{ ind.category }} · {{ FREQUENCIES.get(ind.frequency, ind.frequency) }}
+            {% if ind.unit %} · Μονάδα: {{ ind.unit }}{% endif %}
+            {% if limits %} · {{ limits }}{% endif %}
+        </div>
+    </div>
+    <div>
+        {% if session.role in ('admin', 'central') %}
+        <a href="{{ url_for('indicator_edit', ind_id=ind.id) }}" class="btn btn-outline-secondary btn-action">
+            <i class="bi bi-pencil"></i> Επεξεργασία
+        </a>
+        {% endif %}
+        <a href="{{ url_for('compare_view', indicator=ind.id, year=year) }}" class="btn btn-outline-primary btn-action">
+            <i class="bi bi-graph-up-arrow"></i> Σύγκριση
+        </a>
+    </div>
+</div>
+
+{% if ind.description %}
+<div class="alert alert-light border" style="font-size:0.85rem">{{ ind.description }}</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Εξέλιξη {{ year }} ανά νοσηλευτήριο</span>
+        <form method="get" class="d-flex gap-2">
+            <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="card-body">
+        {% if datasets %}
+        <canvas id="trendChart" height="90"></canvas>
+        {% else %}
+        <div class="text-muted text-center py-4">Δεν υπάρχουν καταχωρήσεις για το {{ year }}.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Πρόσφατες καταχωρήσεις</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="font-size:0.85rem">
+                <thead><tr>
+                    <th>Περίοδος</th><th>Νοσηλευτήριο</th><th class="text-end">Τιμή</th>
+                    <th>Κατάσταση</th><th>Σχόλιο</th><th>Καταχώρηση από</th>
+                </tr></thead>
+                <tbody>
+                {% for r in recent %}
+                <tr>
+                    <td>{{ MONTHS_SHORT[r.month] }} {{ r.year }}</td>
+                    <td>{{ hnames.get(r.hospital_code, r.hospital_code) }}</td>
+                    <td class="text-end fw-bold">{{ r.value|fmtnum }} {{ ind.unit or '' }}</td>
+                    <td>{% if r.status %}<span class="badge bg-{{ STATUS_META[r.status][0] }} badge-status">{{ STATUS_META[r.status][1] }}</span>{% endif %}</td>
+                    <td style="font-size:0.8rem">{{ r.comment or '' }}</td>
+                    <td style="font-size:0.8rem">{{ r.created_by }} · {{ r.updated_at|fmtdt }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-3">Καμία καταχώρηση ακόμη.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if datasets %}
+<script>
+const dsets = {{ datasets|tojson }};
+const chartData = {
+    labels: {{ MONTHS_SHORT.values()|list|tojson }},
+    datasets: dsets.map((d, i) => ({
+        label: d.label, data: d.data, spanGaps: true, tension: 0.25,
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        backgroundColor: CHART_COLORS[i % CHART_COLORS.length]
+    }))
+};
+{% if ind.target_value is not none %}
+chartData.datasets.push({ label: 'Στόχος', data: Array(12).fill({{ ind.target_value }}),
+    borderColor: '#16a34a', borderDash: [6,4], pointRadius: 0, fill: false });
+{% endif %}
+{% if ind.limit_high is not none %}
+chartData.datasets.push({ label: 'Άνω όριο', data: Array(12).fill({{ ind.limit_high }}),
+    borderColor: '#dc2626', borderDash: [3,3], pointRadius: 0, fill: false });
+{% endif %}
+{% if ind.limit_low is not none %}
+chartData.datasets.push({ label: 'Κάτω όριο', data: Array(12).fill({{ ind.limit_low }}),
+    borderColor: '#dc2626', borderDash: [3,3], pointRadius: 0, fill: false });
+{% endif %}
+new Chart(document.getElementById('trendChart'), {
+    type: 'line', data: chartData,
+    options: { responsive: true, interaction: { mode: 'index', intersect: false },
+               plugins: { legend: { labels: { font: { size: 11 } } } } }
+});
+</script>
+{% endif %}
+{% endblock %}

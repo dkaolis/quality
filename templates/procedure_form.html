@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{% if proc %}Επεξεργασία{% else %}Νέα{% endif %} Διαδικασία{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-diagram-3"></i> {% if proc %}Επεξεργασία Διαδικασίας {{ proc.code }}{% else %}Νέα Πρότυπη Διαδικασία{% endif %}</h2>
+</div>
+<div class="card" style="max-width: 800px">
+    <div class="card-body">
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Κωδικός *</label>
+                    <input type="text" name="code" class="form-control" required value="{{ proc.code if proc else '' }}">
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label">Όνομα διαδικασίας *</label>
+                    <input type="text" name="name" class="form-control" required value="{{ proc.name if proc else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Κατηγορία</label>
+                    <input type="text" name="category" class="form-control" value="{{ proc.category if proc else 'Γενικές' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Σειρά</label>
+                    <input type="number" name="sort_order" class="form-control" value="{{ proc.sort_order if proc else 0 }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="active" id="active"
+                               {% if not proc or proc.active %}checked{% endif %}>
+                        <label class="form-check-label" for="active">Ενεργή</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Περιγραφή</label>
+                    <textarea name="description" class="form-control" rows="3">{{ proc.description if proc else '' }}</textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+                <a href="{{ url_for('procedures_list') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

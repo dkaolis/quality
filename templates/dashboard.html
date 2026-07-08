@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Πίνακας Ελέγχου{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-speedometer2"></i> Πίνακας Ελέγχου Ποιότητας</h2>
+    <a href="{{ url_for('reports_page') }}" class="btn btn-outline-secondary btn-action">
+        <i class="bi bi-file-earmark-bar-graph"></i> Δημιουργία Έκθεσης
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#dc2626">
+            <div class="card-body">
+                <div class="stat-value text-danger">{{ n_alert }}</div>
+                <div class="stat-label">Δείκτες εκτός ορίων</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#d97706">
+            <div class="card-body">
+                <div class="stat-value text-warning">{{ n_warn }}</div>
+                <div class="stat-label">Δείκτες εκτός στόχου</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#7c3aed">
+            <div class="card-body">
+                <div class="stat-value" style="color:#7c3aed">{{ non_compliant|length }}</div>
+                <div class="stat-label">Μη συμμορφούμενες διαδικασίες</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#0d9488">
+            <div class="card-body">
+                <div class="stat-value" style="color:#0d9488">{{ open_inspections }}</div>
+                <div class="stat-label">Ανοικτές επιθεωρήσεις</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-exclamation-triangle"></i> Επισημάνσεις — τελευταία περίοδος ανά δείκτη</div>
+            <div class="card-body p-0">
+                {% if alerts %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0" style="font-size:0.85rem">
+                        <thead><tr>
+                            <th>Δείκτης</th><th>Νοσηλευτήριο</th><th>Περίοδος</th>
+                            <th class="text-end">Τιμή</th><th>Κατάσταση</th>
+                        </tr></thead>
+                        <tbody>
+                        {% for a in alerts %}
+                        <tr>
+                            <td><a href="{{ url_for('indicator_view', ind_id=a.indicator_id) }}">{{ a.ind_code }}</a> {{ a.ind_name }}</td>
+                            <td>{{ hnames.get(a.hospital_code, a.hospital_code) }}</td>
+                            <td>{{ MONTHS_SHORT[a.month] }} {{ a.year }}</td>
+                            <td class="text-end fw-bold">{{ a.value|fmtnum }} {{ a.unit or '' }}</td>
+                            <td><span class="badge bg-{{ STATUS_META[a.status][0] }} badge-status">{{ STATUS_META[a.status][1] }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if alert_count > alerts|length %}
+                <div class="p-2 text-center">
+                    <a href="{{ url_for('alerts_list') }}" style="font-size:0.82rem">Όλες οι επισημάνσεις ({{ alert_count }}) →</a>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-check-circle" style="font-size:2rem; color:#16a34a"></i>
+                    <div class="mt-2">Κανένας δείκτης εκτός στόχου ή ορίων.</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-bar-chart"></i> Επισημάνσεις ανά νοσηλευτήριο</div>
+            <div class="card-body">
+                {% if hosp_chart.labels %}
+                <canvas id="hospChart" height="170"></canvas>
+                {% else %}<div class="text-muted text-center py-3" style="font-size:0.85rem">Χωρίς δεδομένα.</div>{% endif %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><i class="bi bi-pie-chart"></i> Συμμόρφωση διαδικασιών (τελευταίες αξιολογήσεις)</div>
+            <div class="card-body">
+                {% if comp_counts.compliant + comp_counts.partial + comp_counts.non_compliant > 0 %}
+                <div class="row align-items-center">
+                    <div class="col-6"><canvas id="compChart" height="150"></canvas></div>
+                    <div class="col-6" style="font-size:0.82rem">
+                        <div><span class="badge bg-success">&nbsp;</span> Πλήρης: {{ comp_counts.compliant }}</div>
+                        <div class="mt-1"><span class="badge bg-warning">&nbsp;</span> Μερική: {{ comp_counts.partial }}</div>
+                        <div class="mt-1"><span class="badge bg-danger">&nbsp;</span> Μη συμμόρφωση: {{ comp_counts.non_compliant }}</div>
+                        <a href="{{ url_for('compliance_matrix') }}" class="d-block mt-2">Πίνακας συμμόρφωσης →</a>
+                    </div>
+                </div>
+                {% else %}<div class="text-muted text-center py-3" style="font-size:0.85rem">Δεν υπάρχουν αξιολογήσεις ακόμη.</div>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <span><i class="bi bi-search"></i> Πρόσφατες επιθεωρήσεις</span>
+                <a href="{{ url_for('inspections_list') }}" style="font-size:0.8rem">Όλες →</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size:0.85rem">
+                    <tbody>
+                    {% for ins in recent_inspections %}
+                    <tr>
+                        <td>{{ ins.inspection_date|fmtdate }}</td>
+                        <td><a href="{{ url_for('inspection_view', ins_id=ins.id) }}">{{ hnames.get(ins.hospital_code, ins.hospital_code) }}</a></td>
+                        <td>{{ ins.itype }}</td>
+                        <td><span class="badge bg-{{ INSPECTION_STATUS[ins.status][1] }}">{{ INSPECTION_STATUS[ins.status][0] }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-muted text-center py-3">Καμία επιθεώρηση.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <span><i class="bi bi-folder2-open"></i> Πρόσφατα έγγραφα</span>
+                <a href="{{ url_for('documents_list') }}" style="font-size:0.8rem">Όλα →</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0" style="font-size:0.85rem">
+                    <tbody>
+                    {% for d in recent_documents %}
+                    <tr>
+                        <td>{{ d.uploaded_at|fmtdate }}</td>
+                        <td><a href="{{ url_for('document_view', doc_id=d.id) }}">{{ d.title }}</a></td>
+                        <td>{{ hnames.get(d.hospital_code, d.hospital_code) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-muted text-center py-3">Κανένα έγγραφο.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% if hosp_chart.labels %}
+new Chart(document.getElementById('hospChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ hosp_chart.labels|tojson }},
+        datasets: [
+            { label: 'Εκτός ορίων', data: {{ hosp_chart.alert|tojson }}, backgroundColor: '#dc2626' },
+            { label: 'Εκτός στόχου', data: {{ hosp_chart.warn|tojson }}, backgroundColor: '#f59e0b' }
+        ]
+    },
+    options: {
+        responsive: true,
+        scales: { x: { stacked: true }, y: { stacked: true, ticks: { precision: 0 } } },
+        plugins: { legend: { labels: { font: { size: 11 } } } }
+    }
+});
+{% endif %}
+{% if comp_counts.compliant + comp_counts.partial + comp_counts.non_compliant > 0 %}
+new Chart(document.getElementById('compChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Πλήρης', 'Μερική', 'Μη συμμόρφωση'],
+        datasets: [{ data: [{{ comp_counts.compliant }}, {{ comp_counts.partial }}, {{ comp_counts.non_compliant }}],
+                     backgroundColor: ['#16a34a', '#f59e0b', '#dc2626'] }]
+    },
+    options: { plugins: { legend: { display: false } } }
+});
+{% endif %}
+</script>
+{% endblock %}

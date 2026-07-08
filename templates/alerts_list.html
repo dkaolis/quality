@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Επισημάνσεις{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bell"></i> Επισημάνσεις</h2>
+    <div class="text-muted" style="font-size:0.85rem">Δείκτες εκτός στόχου ή ορίων στην πιο πρόσφατη καταχωρημένη περίοδο κάθε νοσηλευτηρίου.</div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        {% if alerts %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.87rem">
+                <thead><tr>
+                    <th>Κατάσταση</th><th>Δείκτης</th><th>Κατηγορία</th><th>Νοσηλευτήριο</th>
+                    <th>Περίοδος</th><th class="text-end">Τιμή</th><th>Στόχος / Όρια</th><th>Σχόλιο</th>
+                </tr></thead>
+                <tbody>
+                {% for a in alerts %}
+                <tr class="{% if a.status == 'alert' %}table-danger{% else %}table-warning{% endif %}">
+                    <td><span class="badge bg-{{ STATUS_META[a.status][0] }} badge-status">{{ STATUS_META[a.status][1] }}</span></td>
+                    <td><a href="{{ url_for('indicator_view', ind_id=a.indicator_id) }}">{{ a.ind_code }}</a> {{ a.ind_name }}</td>
+                    <td>{{ a.category }}</td>
+                    <td>{{ hnames.get(a.hospital_code, a.hospital_code) }}</td>
+                    <td>{{ MONTHS_SHORT[a.month] }} {{ a.year }}</td>
+                    <td class="text-end fw-bold">{{ a.value|fmtnum }} {{ a.unit or '' }}</td>
+                    <td style="font-size:0.8rem">
+                        {%- if a.target_value is not none %}Στόχος {{ a.target_value|fmtnum }}{% endif %}
+                        {%- if a.limit_high is not none %} · ≤{{ a.limit_high|fmtnum }}{% endif %}
+                        {%- if a.limit_low is not none %} · ≥{{ a.limit_low|fmtnum }}{% endif %}
+                    </td>
+                    <td style="font-size:0.8rem">{{ a.comment or '' }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+            <i class="bi bi-check-circle" style="font-size:2rem; color:#16a34a"></i>
+            <div class="mt-2">Δεν υπάρχουν επισημάνσεις — όλοι οι δείκτες είναι εντός στόχων.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

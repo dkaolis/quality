@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ d.title }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-file-earmark-text"></i> {{ d.title }}</h2>
+        <div class="text-muted" style="font-size:0.85rem">
+            {{ hnames.get(d.hospital_code, d.hospital_code) }} · {{ d.category }}
+            {% if d.year %} · Περίοδος: {{ MONTHS.get(d.month, '') }} {{ d.year }}{% endif %}
+            · {{ d.orig_name }} · {{ d.uploaded_by }} ({{ d.uploaded_at|fmtdt }})
+        </div>
+    </div>
+    <div>
+        <a href="{{ url_for('document_download', doc_id=d.id) }}" class="btn btn-outline-primary btn-action">
+            <i class="bi bi-download"></i> Λήψη
+        </a>
+        {% if can_edit %}
+        <form method="post" action="{{ url_for('document_reparse', doc_id=d.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-outline-secondary btn-action" title="Επανάληψη εξαγωγής δεδομένων">
+                <i class="bi bi-arrow-repeat"></i> Επανανάλυση
+            </button>
+        </form>
+        <form method="post" action="{{ url_for('document_delete', doc_id=d.id) }}" class="d-inline"
+              onsubmit="return confirm('Οριστική διαγραφή του εγγράφου και των δεδομένων του;')">
+            <button type="submit" class="btn btn-outline-danger btn-action"><i class="bi bi-trash"></i></button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if d.parse_status == 'error' %}
+<div class="alert alert-danger" style="font-size:0.85rem">
+    <i class="bi bi-exclamation-triangle"></i> Σφάλμα ανάλυσης: {{ d.parse_error }}
+</div>
+{% elif d.parse_status == 'unsupported' %}
+<div class="alert alert-secondary" style="font-size:0.85rem">
+    <i class="bi bi-info-circle"></i> {{ d.parse_error or 'Ο τύπος αρχείου δεν υποστηρίζει αυτόματη εξαγωγή δεδομένων.' }}
+</div>
+{% elif d.parse_status == 'no_data' %}
+<div class="alert alert-secondary" style="font-size:0.85rem">
+    <i class="bi bi-info-circle"></i> Δεν εντοπίστηκαν αριθμητικά δεδομένα στο έγγραφο.
+</div>
+{% endif %}
+
+{% for chart in charts %}
+<div class="card mb-3">
+    <div class="card-header py-2"><i class="bi bi-bar-chart"></i> {{ chart.grp }}</div>
+    <div class="card-body">
+        <canvas id="chart{{ loop.index }}" height="{{ [chart.labels|length * 14 + 40, 380]|min }}"></canvas>
+    </div>
+</div>
+{% endfor %}
+
+{% if groups %}
+<div class="card">
+    <div class="card-header py-2">Εξαχθέντα δεδομένα ({{ groups.values()|map('length')|sum }} τιμές)</div>
+    <div class="card-body p-0">
+        <div class="table-responsive" style="max-height: 600px; overflow-y:auto">
+            <table class="table table-sm table-striped mb-0" style="font-size:0.83rem">
+                <thead><tr><th>Ενότητα</th><th>Στοιχείο</th><th class="text-end">Τιμή</th></tr></thead>
+                <tbody>
+                {% for grp, items in groups.items() %}
+                    {% for m in items %}
+                    <tr>
+                        <td class="text-muted">{{ grp }}</td>
+                        <td>{{ m.label }}</td>
+                        <td class="text-end fw-bold">{{ m.value|fmtnum(3) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% for chart in charts %}
+new Chart(document.getElementById('chart{{ loop.index }}'), {
+    type: 'bar',
+    data: {
+        labels: {{ chart.labels|tojson }},
+        datasets: [{ label: '{{ chart.grp }}', data: {{ chart.data|tojson }},
+                     backgroundColor: CHART_COLORS[{{ loop.index0 }} % CHART_COLORS.length] }]
+    },
+    options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { ticks: { font: { size: 10 }, autoSkip: false } } }
+    }
+});
+{% endfor %}
+</script>
+{% endblock %}

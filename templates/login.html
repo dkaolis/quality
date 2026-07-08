@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Σύνδεση{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 90vh;">
+    <div class="card shadow" style="max-width: 420px; width: 100%;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-clipboard2-pulse" style="font-size: 3rem; color: #0d9488;"></i>
+                <h3 class="mt-2 mb-0 fw-bold">eQuality</h3>
+                <div class="text-muted" style="font-size: 0.85rem;">Πλατφόρμα Διασφάλισης Ποιότητας</div>
+                <div class="text-muted" style="font-size: 0.78rem;">{{ APP_SETTINGS.org_name }}</div>
+            </div>
+            <form method="post">
+                <div class="mb-3">
+                    <label class="form-label">Όνομα χρήστη</label>
+                    <input type="text" name="username" class="form-control" required autofocus autocomplete="username">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Κωδικός</label>
+                    <input type="password" name="password" class="form-control" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn w-100 text-white" style="background:#0d9488">
+                    <i class="bi bi-box-arrow-in-right"></i> Σύνδεση
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

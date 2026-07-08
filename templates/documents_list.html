@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Έγγραφα{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-folder2-open"></i> Έγγραφα</h2>
+        <div class="text-muted" style="font-size:0.85rem">Πρότυπα έγγραφα Word/Excel — τα αριθμητικά δεδομένα εξάγονται αυτόματα για αναλύσεις & γραφήματα.</div>
+    </div>
+    {% if can_upload %}
+    <button class="btn btn-success btn-action" data-bs-toggle="modal" data-bs-target="#uploadModal">
+        <i class="bi bi-upload"></i> Νέο Έγγραφο
+    </button>
+    {% endif %}
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <select name="hospital" class="form-select form-select-sm select2">
+                    <option value="">Όλα τα νοσηλευτήρια</option>
+                    {% for h in hospitals %}
+                    <option value="{{ h.code }}" {% if h.code == sel_hospital %}selected{% endif %}>{{ h.name_el }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="category" class="form-select form-select-sm">
+                    <option value="">Όλες οι κατηγορίες</option>
+                    {% for c in categories %}
+                    <option value="{{ c }}" {% if c == sel_category %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Φίλτρο</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.86rem">
+                <thead><tr>
+                    <th>Τίτλος</th><th>Νοσηλευτήριο</th><th>Κατηγορία</th><th>Περίοδος</th>
+                    <th>Αρχείο</th><th class="text-center">Δεδομένα</th><th>Ανέβηκε</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for d in documents %}
+                <tr>
+                    <td><a href="{{ url_for('document_view', doc_id=d.id) }}">{{ d.title }}</a></td>
+                    <td>{{ hnames.get(d.hospital_code, d.hospital_code) }}</td>
+                    <td>{{ d.category }}</td>
+                    <td>{% if d.year %}{{ MONTHS_SHORT.get(d.month, '') }} {{ d.year }}{% else %}—{% endif %}</td>
+                    <td style="font-size:0.78rem">{{ d.orig_name }}</td>
+                    <td class="text-center">
+                        {% if d.parse_status == 'parsed' %}
+                        <span class="badge bg-success" title="Εξήχθησαν {{ d.metrics_count }} τιμές">{{ d.metrics_count }}</span>
+                        {% elif d.parse_status == 'no_data' %}
+                        <span class="badge bg-secondary">χωρίς δεδομένα</span>
+                        {% elif d.parse_status == 'unsupported' %}
+                        <span class="badge bg-light text-dark border">μη αναλύσιμο</span>
+                        {% elif d.parse_status == 'error' %}
+                        <span class="badge bg-danger">σφάλμα</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">εκκρεμεί</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.8rem">{{ d.uploaded_at|fmtdate }} · {{ d.uploaded_by }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('document_download', doc_id=d.id) }}" class="btn btn-sm btn-outline-secondary" title="Λήψη">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-3">Δεν υπάρχουν έγγραφα.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if can_upload %}
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{{ url_for('document_upload') }}" enctype="multipart/form-data" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload"></i> Νέο Έγγραφο</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Αρχείο * <small class="text-muted">(.xlsx/.docx αναλύονται αυτόματα · .xls/.doc/.pdf μόνο αποθήκευση)</small></label>
+                    <input type="file" name="file" class="form-control" required accept=".doc,.docx,.xls,.xlsx,.pdf">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Τίτλος</label>
+                    <input type="text" name="title" class="form-control" placeholder="(προεπιλογή: όνομα αρχείου)">
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Νοσηλευτήριο *</label>
+                        <select name="hospital_code" class="form-select" required>
+                            {% for h in hospitals %}
+                            {% if session.role in ('admin','central') or session.hospital_code == h.code %}
+                            <option value="{{ h.code }}" {% if session.hospital_code == h.code %}selected{% endif %}>{{ h.name_el }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Κατηγορία</label>
+                        <select name="category" class="form-select">
+                            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Έτος αναφοράς</label>
+                        <input type="number" name="year" class="form-control" min="2015" max="2100" value="{{ CURRENT_YEAR }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Μήνας αναφοράς</label>
+                        <select name="month" class="form-select">
+                            <option value="">—</option>
+                            {% for m, name in MONTHS.items() %}<option value="{{ m }}">{{ name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Ακύρωση</button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-upload"></i> Ανέβασμα & Ανάλυση</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

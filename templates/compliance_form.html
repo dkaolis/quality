@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Αξιολόγηση Συμμόρφωσης{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-journal-check"></i> {% if a %}Επεξεργασία Αξιολόγησης{% else %}Νέα Αξιολόγηση Συμμόρφωσης{% endif %}</h2>
+</div>
+<div class="card" style="max-width: 800px">
+    <div class="card-body">
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label class="form-label">Πρότυπη διαδικασία *</label>
+                    <select name="procedure_id" class="form-select select2" required>
+                        {% for p in procedures %}
+                        <option value="{{ p.id }}"
+                            {% if (a and a.procedure_id == p.id) or (not a and preselect.procedure_id == p.id) %}selected{% endif %}>
+                            {{ p.code }} — {{ p.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Νοσηλευτήριο *</label>
+                    <select name="hospital_code" class="form-select select2" required>
+                        {% for h in hospitals %}
+                        <option value="{{ h.code }}"
+                            {% if (a and a.hospital_code == h.code) or (not a and preselect.hospital_code == h.code) %}selected{% endif %}>
+                            {{ h.name_el }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Ημερομηνία αξιολόγησης *</label>
+                    <input type="date" name="assess_date" class="form-control" required
+                           value="{{ a.assess_date|fmtdate if a else today }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Κατάσταση *</label>
+                    <select name="status" class="form-select" required>
+                        {% for k, (label, _) in COMPLIANCE_STATUS.items() %}
+                        <option value="{{ k }}" {% if a and a.status == k %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Βαθμός συμμόρφωσης (%)</label>
+                    <input type="number" name="score" class="form-control" min="0" max="100"
+                           value="{{ a.score if a and a.score is not none else '' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Ευρήματα / Αποκλίσεις</label>
+                    <textarea name="findings" class="form-control" rows="3">{{ a.findings if a else '' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Διορθωτικές ενέργειες</label>
+                    <textarea name="actions" class="form-control" rows="3">{{ a.actions if a else '' }}</textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+                <a href="{{ url_for('compliance_matrix') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

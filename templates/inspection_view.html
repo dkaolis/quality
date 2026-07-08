@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Επιθεώρηση #{{ ins.id }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-search"></i> Επιθεώρηση — {{ hnames.get(ins.hospital_code, ins.hospital_code) }}</h2>
+        <div class="text-muted" style="font-size:0.85rem">
+            {{ ins.inspection_date|fmtdate }} · {{ ins.itype }}
+            {% if ins.body %} · {{ ins.body }}{% endif %}
+        </div>
+    </div>
+    <div>
+        {% if can_edit %}
+        <a href="{{ url_for('inspection_edit', ins_id=ins.id) }}" class="btn btn-outline-secondary btn-action">
+            <i class="bi bi-pencil"></i> Επεξεργασία
+        </a>
+        {% endif %}
+        <a href="{{ url_for('inspections_list') }}" class="btn btn-outline-secondary btn-action">← Λίστα</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#dc2626">
+            <div class="card-body py-3">
+                <div class="stat-value text-danger">{{ ins.findings_major }}</div>
+                <div class="stat-label">Σοβαρά ευρήματα</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#d97706">
+            <div class="card-body py-3">
+                <div class="stat-value text-warning">{{ ins.findings_minor }}</div>
+                <div class="stat-label">Δευτερεύοντα ευρήματα</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#64748b">
+            <div class="card-body py-3">
+                <div class="stat-value text-secondary">{{ ins.observations }}</div>
+                <div class="stat-label">Παρατηρήσεις</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card" style="border-left-color:#0d9488">
+            <div class="card-body py-3">
+                <div class="stat-value" style="color:#0d9488">{{ ins.score|fmtnum if ins.score is not none else '—' }}</div>
+                <div class="stat-label">Βαθμολογία · <span class="badge bg-{{ INSPECTION_STATUS[ins.status][1] }}">{{ INSPECTION_STATUS[ins.status][0] }}</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2">Σύνοψη ευρημάτων</div>
+            <div class="card-body" style="font-size:0.88rem; white-space:pre-wrap">{{ ins.summary or '—' }}</div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header py-2">Διορθωτικές ενέργειες / Σχέδιο δράσης</div>
+            <div class="card-body" style="font-size:0.88rem; white-space:pre-wrap">{{ ins.actions or '—' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="text-muted mt-3" style="font-size:0.78rem">
+    Αντικείμενο: {{ ins.scope or '—' }} · Καταχώρηση: {{ ins.created_by }} ({{ ins.created_at|fmtdt }})
+</div>
+{% endblock %}

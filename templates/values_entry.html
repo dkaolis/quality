@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Καταχώρηση Τιμών{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-pencil-square"></i> Καταχώρηση Τιμών Δεικτών</h2>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <select name="hospital" class="form-select form-select-sm select2">
+                    {% for h in hospitals %}
+                    <option value="{{ h.code }}" {% if h.code == hosp %}selected{% endif %}>{{ h.name_el }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="year" class="form-select form-select-sm">
+                    {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="month" class="form-select form-select-sm">
+                    {% for m, name in MONTHS.items() %}
+                    <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat"></i> Εμφάνιση</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not editable %}
+<div class="alert alert-info" style="font-size:0.87rem">
+    <i class="bi bi-eye"></i> Προβολή μόνο — δεν έχετε δικαίωμα καταχώρησης για αυτό το νοσηλευτήριο.
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('values_entry', hospital=hosp, year=year, month=month) }}">
+    <input type="hidden" name="hospital" value="{{ hosp }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="month" value="{{ month }}">
+    {% set categories = indicators|map(attribute='category')|unique|list %}
+    {% for cat in categories %}
+    <div class="card mb-3">
+        <div class="card-header py-2">{{ cat }}</div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 align-middle" style="font-size:0.86rem">
+                <thead><tr>
+                    <th style="width:42%">Δείκτης</th>
+                    <th style="width:13%">Στόχος / Όρια</th>
+                    <th style="width:13%">Τιμή {% if indicators and indicators[0] %}{% endif %}</th>
+                    <th style="width:8%">Κατάσταση</th>
+                    <th>Σχόλιο</th>
+                </tr></thead>
+                <tbody>
+                {% for ind in indicators if ind.category == cat %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('indicator_view', ind_id=ind.id) }}" class="fw-bold text-decoration-none">{{ ind.code }}</a>
+                        {{ ind.name }} {% if ind.unit %}<span class="text-muted">({{ ind.unit }})</span>{% endif %}
+                        {% if ind.frequency != 'monthly' %}
+                        <span class="badge bg-light text-dark border" style="font-size:0.65rem">{{ FREQUENCIES[ind.frequency] }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.78rem" class="text-muted">{{ ind.limits or '—' }}</td>
+                    <td>
+                        <input type="text" name="val_{{ ind.id }}" class="form-control form-control-sm text-end"
+                               inputmode="decimal" value="{{ ind.value|fmtnum if ind.value is not none else '' }}"
+                               {% if not editable %}disabled{% endif %}>
+                    </td>
+                    <td class="text-center">
+                        {% if ind.status %}
+                        <span class="badge bg-{{ STATUS_META[ind.status][0] }} badge-status" title="{{ STATUS_META[ind.status][1] }}">●</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <input type="text" name="com_{{ ind.id }}" class="form-control form-control-sm"
+                               value="{{ ind.comment or '' }}" {% if not editable %}disabled{% endif %}>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">Δεν υπάρχουν ενεργοί δείκτες για την περίοδο αυτή.</div>
+    {% endfor %}
+
+    {% if editable and indicators %}
+    <div class="mb-4">
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-lg"></i> Αποθήκευση όλων ({{ MONTHS[month] }} {{ year }})
+        </button>
+        <span class="text-muted ms-2" style="font-size:0.8rem">Κενή τιμή = διαγραφή τυχόν υπάρχουσας καταχώρησης.</span>
+    </div>
+    {% endif %}
+</form>
+{% endblock %}

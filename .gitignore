@@ -1,0 +1,17 @@
+# Μυστικά & ρυθμίσεις περιβάλλοντος
+settings.json
+.secret_key
+
+# Βάση δεδομένων & δεδομένα χρηστών (GDPR)
+quality.db
+uploads/
+reports/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Λοιπά
+*.log
+.DS_Store

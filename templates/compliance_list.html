@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Αξιολογήσεις Συμμόρφωσης{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-journal-check"></i> Αξιολογήσεις Συμμόρφωσης</h2>
+    <a href="{{ url_for('compliance_new') }}" class="btn btn-success btn-action">
+        <i class="bi bi-plus-lg"></i> Νέα Αξιολόγηση
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <select name="hospital" class="form-select form-select-sm select2">
+                    <option value="">Όλα τα νοσηλευτήρια</option>
+                    {% for h in hospitals %}
+                    <option value="{{ h.code }}" {% if h.code == sel_hospital %}selected{% endif %}>{{ h.name_el }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select name="procedure" class="form-select form-select-sm select2">
+                    <option value="">Όλες οι διαδικασίες</option>
+                    {% for p in procedures %}
+                    <option value="{{ p.id }}" {% if p.id|string == sel_procedure %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Φίλτρο</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.86rem">
+                <thead><tr>
+                    <th>Ημερομηνία</th><th>Διαδικασία</th><th>Νοσηλευτήριο</th><th>Κατάσταση</th>
+                    <th class="text-end">Βαθμός</th><th>Ευρήματα</th><th>Από</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for a in assessments %}
+                <tr>
+                    <td>{{ a.assess_date|fmtdate }}</td>
+                    <td><strong>{{ a.proc_code }}</strong> {{ a.proc_name }}</td>
+                    <td>{{ hnames.get(a.hospital_code, a.hospital_code) }}</td>
+                    <td><span class="badge bg-{{ COMPLIANCE_STATUS[a.status][1] }} badge-status">{{ COMPLIANCE_STATUS[a.status][0] }}</span></td>
+                    <td class="text-end">{{ a.score if a.score is not none else '—' }}{% if a.score is not none %}%{% endif %}</td>
+                    <td style="font-size:0.8rem">{{ (a.findings or '')[:80] }}</td>
+                    <td style="font-size:0.8rem">{{ a.created_by }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('compliance_edit', a_id=a.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-3">Δεν υπάρχουν αξιολογήσεις.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
