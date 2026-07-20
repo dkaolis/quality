@@ -37,6 +37,11 @@
             padding: 0.9rem 1.2rem 0.3rem; font-size: 0.65rem; text-transform: uppercase;
             letter-spacing: 0.1em; color: #4d7a75; margin-top: 0.3rem;
         }
+        .sidebar .nav-parent { cursor: pointer; }
+        .sidebar .nav-parent .nav-caret { font-size: 0.7rem; transition: transform 0.2s; }
+        .sidebar .nav-parent.collapsed .nav-caret { transform: rotate(-90deg); }
+        .sidebar .nav-sub { padding-left: 2.7rem; font-size: 0.82rem; }
+        .sidebar .nav-sub i { font-size: 0.9rem; }
         .sidebar .user-info {
             margin-top: auto; padding: 0.8rem 1.2rem; border-top: 1px solid rgba(255,255,255,0.08);
             font-size: 0.78rem; color: #99b3b0; background: rgba(0,0,0,0.15);
@@ -97,16 +102,24 @@
                 {% if alert_count %}<span class="badge bg-danger ms-auto">{{ alert_count }}</span>{% endif %}
             </a>
 
-            <div class="nav-section">Δείκτες Ποιότητας</div>
-            <a href="{{ url_for('values_entry') }}" class="nav-link {% if request.endpoint == 'values_entry' %}active{% endif %}">
-                <i class="bi bi-pencil-square"></i> Καταχώρηση Τιμών
+            {% set indicators_active = request.endpoint in ('values_entry','compare_view','indicators_list','indicator_new','indicator_edit','indicator_view') %}
+            <a href="#indicatorsMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if indicators_active else 'false' }}" aria-controls="indicatorsMenu"
+               class="nav-link nav-parent {% if not indicators_active %}collapsed{% endif %}{% if indicators_active %} active{% endif %}">
+                <i class="bi bi-clipboard-data"></i> Δείκτες Ποιότητας
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
             </a>
-            <a href="{{ url_for('compare_view') }}" class="nav-link {% if request.endpoint == 'compare_view' %}active{% endif %}">
-                <i class="bi bi-graph-up-arrow"></i> Σύγκριση & Τάσεις
-            </a>
-            <a href="{{ url_for('indicators_list') }}" class="nav-link {% if request.endpoint in ('indicators_list','indicator_new','indicator_edit','indicator_view') %}active{% endif %}">
-                <i class="bi bi-list-check"></i> Ορισμοί Δεικτών
-            </a>
+            <div class="collapse {% if indicators_active %}show{% endif %}" id="indicatorsMenu">
+                <a href="{{ url_for('indicators_list') }}" class="nav-link nav-sub {% if request.endpoint in ('indicators_list','indicator_new','indicator_edit','indicator_view') %}active{% endif %}">
+                    <i class="bi bi-list-check"></i> Ορισμοί Δεικτών
+                </a>
+                <a href="{{ url_for('values_entry') }}" class="nav-link nav-sub {% if request.endpoint == 'values_entry' %}active{% endif %}">
+                    <i class="bi bi-pencil-square"></i> Καταχώρηση Τιμών
+                </a>
+                <a href="{{ url_for('compare_view') }}" class="nav-link nav-sub {% if request.endpoint == 'compare_view' %}active{% endif %}">
+                    <i class="bi bi-graph-up-arrow"></i> Σύγκριση & Τάσεις
+                </a>
+            </div>
 
             <div class="nav-section">Συμμόρφωση</div>
             <a href="{{ url_for('compliance_matrix') }}" class="nav-link {% if request.endpoint in ('compliance_matrix','compliance_new','compliance_edit') %}active{% endif %}">
