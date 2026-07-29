@@ -58,7 +58,7 @@
                 <tr>
                     <td>{{ MONTHS_SHORT[r.month] }} {{ r.year }}</td>
                     <td>{{ hnames.get(r.hospital_code, r.hospital_code) }}</td>
-                    <td class="text-end fw-bold">{{ r.value|fmtnum }} {{ ind.unit or '' }}</td>
+                    <td class="text-end fw-bold">{% if r.no_data %}<span class="text-muted">{{ r.result_text or 'Δ/Υ' }}</span>{% else %}{{ r.value|fmtnum }} {{ ind.unit or '' }}{% endif %}</td>
                     <td>{% if r.status %}<span class="badge bg-{{ STATUS_META[r.status][0] }} badge-status">{{ STATUS_META[r.status][1] }}</span>{% endif %}</td>
                     <td style="font-size:0.8rem">{{ r.comment or '' }}</td>
                     <td style="font-size:0.8rem">{{ r.created_by }} · {{ r.updated_at|fmtdt }}</td>

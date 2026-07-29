@@ -24,6 +24,9 @@
         .sidebar .brand i { color: var(--accent); font-size: 1.4rem; }
         .sidebar .brand small { display: block; font-size: 0.65rem; font-weight: 400; color: #5eead4;
             opacity: 0.6; letter-spacing: 0.04em; margin-top: 2px; }
+        .sidebar .hospital-name { padding: 0.45rem 1.2rem; font-size: 0.72rem; color: #5eead4;
+            display: flex; align-items: center; gap: 0.4rem;
+            background: rgba(0,0,0,0.18); border-bottom: 1px solid rgba(255,255,255,0.06); }
         .sidebar .nav-link {
             color: #99b3b0; padding: 0.55rem 1.2rem; display: flex; align-items: center; gap: 0.6rem;
             text-decoration: none; transition: all 0.15s; font-size: 0.85rem; border-left: 3px solid transparent;
@@ -42,6 +45,8 @@
         .sidebar .nav-parent.collapsed .nav-caret { transform: rotate(-90deg); }
         .sidebar .nav-sub { padding-left: 2.7rem; font-size: 0.82rem; }
         .sidebar .nav-sub i { font-size: 0.9rem; }
+        .sidebar .nav-sub2 { padding-left: 3.7rem; font-size: 0.8rem; }
+        .sidebar .nav-sub2 i { font-size: 0.9rem; }
         .sidebar .user-info {
             margin-top: auto; padding: 0.8rem 1.2rem; border-top: 1px solid rgba(255,255,255,0.08);
             font-size: 0.78rem; color: #99b3b0; background: rgba(0,0,0,0.15);
@@ -93,6 +98,7 @@
                 <small>Μονάδα Διασφάλισης Ποιότητας</small>
             </a>
         </div>
+        <div class="hospital-name"><i class="bi bi-hospital"></i> Γενικό Νοσοκομείο Λευκωσίας</div>
         <div class="mt-1">
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
                 <i class="bi bi-speedometer2"></i> Πίνακας Ελέγχου
@@ -110,9 +116,24 @@
                 <i class="bi bi-chevron-down ms-auto nav-caret"></i>
             </a>
             <div class="collapse {% if indicators_active %}show{% endif %}" id="indicatorsMenu">
-                <a href="{{ url_for('indicators_list') }}" class="nav-link nav-sub {% if request.endpoint in ('indicators_list','indicator_new','indicator_edit','indicator_view') %}active{% endif %}">
+                {% set defs_active = request.endpoint in ('indicators_list','indicator_new','indicator_edit','indicator_view') %}
+                <a href="#defsMenu" data-bs-toggle="collapse" role="button"
+                   aria-expanded="{{ 'true' if defs_active else 'false' }}" aria-controls="defsMenu"
+                   class="nav-link nav-sub nav-parent {% if not defs_active %}collapsed{% endif %}{% if defs_active %} active{% endif %}">
                     <i class="bi bi-list-check"></i> Ορισμοί Δεικτών
+                    <i class="bi bi-chevron-down ms-auto nav-caret"></i>
                 </a>
+                <div class="collapse {% if defs_active %}show{% endif %}" id="defsMenu">
+                    <a href="{{ url_for('indicators_list', grp='ΤΑΕΠ Ενηλίκων') }}" class="nav-link nav-sub2 {% if request.endpoint == 'indicators_list' and request.args.get('grp') == 'ΤΑΕΠ Ενηλίκων' %}active{% endif %}">
+                        <i class="bi bi-dot"></i> ΤΑΕΠ Ενηλίκων
+                    </a>
+                    <a href="{{ url_for('indicators_list', grp='ΤΑΕΠ Παίδων') }}" class="nav-link nav-sub2 {% if request.endpoint == 'indicators_list' and request.args.get('grp') == 'ΤΑΕΠ Παίδων' %}active{% endif %}">
+                        <i class="bi bi-dot"></i> ΤΑΕΠ Παίδων
+                    </a>
+                    <a href="{{ url_for('indicators_list') }}" class="nav-link nav-sub2 {% if defs_active and not request.args.get('grp') %}active{% endif %}">
+                        <i class="bi bi-dot"></i> Όλοι οι δείκτες
+                    </a>
+                </div>
                 <a href="{{ url_for('values_entry') }}" class="nav-link nav-sub {% if request.endpoint == 'values_entry' %}active{% endif %}">
                     <i class="bi bi-pencil-square"></i> Καταχώρηση Τιμών
                 </a>

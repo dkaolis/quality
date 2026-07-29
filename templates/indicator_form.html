@@ -63,6 +63,19 @@
                     <input type="text" name="limit_high" class="form-control" inputmode="decimal"
                            value="{{ ind.limit_high|fmtnum if ind and ind.limit_high is not none else '' }}">
                 </div>
+                <div class="col-md-5">
+                    <label class="form-label">Ομάδα <small class="text-muted">(π.χ. ΤΑΕΠ Ενηλίκων — κενό = γενικός δείκτης)</small></label>
+                    <input type="text" name="grp" class="form-control" list="grp-list"
+                           value="{{ ind.grp if ind and ind.grp else '' }}">
+                    <datalist id="grp-list">
+                        <option>ΤΑΕΠ Ενηλίκων</option><option>ΤΑΕΠ Παίδων</option>
+                    </datalist>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Μέγιστη Βαθμολογία <small class="text-muted">(για δείκτες με σκορ)</small></label>
+                    <input type="text" name="max_score" class="form-control" inputmode="decimal"
+                           value="{{ ind.max_score|fmtnum if ind and ind.max_score is not none else '' }}">
+                </div>
                 <div class="col-12">
                     <label class="form-label">Περιγραφή / Ορισμός (αριθμητής, παρονομαστής, πηγή δεδομένων)</label>
                     <textarea name="description" class="form-control" rows="3">{{ ind.description if ind else '' }}</textarea>

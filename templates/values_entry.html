@@ -1,29 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Καταχώρηση Τιμών{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header d-flex justify-content-between align-items-center">
     <h2><i class="bi bi-pencil-square"></i> Καταχώρηση Τιμών Δεικτών</h2>
+    <span class="badge bg-light text-dark border" style="font-size:0.8rem">
+        <i class="bi bi-hospital"></i> {{ hosp_name }}
+    </span>
 </div>
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form method="get" class="row g-2 align-items-center">
+        <form method="get" class="row g-2 align-items-end">
             <div class="col-md-4">
-                <select name="hospital" class="form-select form-select-sm select2">
-                    {% for h in hospitals %}
-                    <option value="{{ h.code }}" {% if h.code == hosp %}selected{% endif %}>{{ h.name_el }}</option>
+                <label class="form-label mb-1" style="font-size:0.78rem">Ομάδα δεικτών</label>
+                <select name="grp" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Γενικοί δείκτες</option>
+                    {% for g in groups %}
+                    <option value="{{ g }}" {% if g == grp %}selected{% endif %}>{{ g }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-2">
-                <select name="year" class="form-select form-select-sm">
+                <label class="form-label mb-1" style="font-size:0.78rem">Έτος</label>
+                <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
                     {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
-                <select name="month" class="form-select form-select-sm">
+            <div class="col-md-2">
+                <label class="form-label mb-1" style="font-size:0.78rem">Από (μήνας)</label>
+                <select name="month_from" class="form-select form-select-sm" onchange="this.form.submit()">
                     {% for m, name in MONTHS.items() %}
-                    <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ name }}</option>
+                    <option value="{{ m }}" {% if m == month_from %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1" style="font-size:0.78rem">Μέχρι (μήνας)</label>
+                <select name="month_to" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for m, name in MONTHS.items() %}
+                    <option value="{{ m }}" {% if m == month_to %}selected{% endif %}>{{ name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -34,16 +49,45 @@
     </div>
 </div>
 
-{% if not editable %}
-<div class="alert alert-info" style="font-size:0.87rem">
-    <i class="bi bi-eye"></i> Προβολή μόνο — δεν έχετε δικαίωμα καταχώρησης για αυτό το νοσηλευτήριο.
+{% if grp %}
+<div class="alert alert-light border py-2" style="font-size:0.85rem">
+    <i class="bi bi-people"></i> Ομάδα: <strong>{{ grp }}</strong> — καταχωρείς
+    <strong>Αποτέλεσμα</strong> και <strong>Βαθμολογία</strong> ανά δείκτη για την περίοδο
+    <strong>{{ MONTHS[month_from] }}{% if month_to != month_from %} – {{ MONTHS[month_to] }}{% endif %} {{ year }}</strong>.
 </div>
 {% endif %}
 
-<form method="post" action="{{ url_for('values_entry', hospital=hosp, year=year, month=month) }}">
-    <input type="hidden" name="hospital" value="{{ hosp }}">
+{% if scored and indicators %}
+<div class="alert alert-primary d-flex justify-content-between align-items-center py-2" style="font-size:0.9rem">
+    <span><i class="bi bi-calculator"></i> <strong>Τελική Βαθμολογία</strong> (σύνολο κριτηρίων)</span>
+    <span class="fw-bold" style="font-size:1.1rem"><span id="totScore">0</span> / <span id="totMax">0</span></span>
+</div>
+{% endif %}
+
+{% if not editable %}
+<div class="alert alert-info" style="font-size:0.87rem">
+    <i class="bi bi-eye"></i> Προβολή μόνο — δεν έχετε δικαίωμα καταχώρησης.
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('values_entry', year=year, month_from=month_from, month_to=month_to, grp=grp) }}">
     <input type="hidden" name="year" value="{{ year }}">
-    <input type="hidden" name="month" value="{{ month }}">
+    <input type="hidden" name="month_from" value="{{ month_from }}">
+    <input type="hidden" name="month_to" value="{{ month_to }}">
+    <input type="hidden" name="grp" value="{{ grp }}">
+    {% if indicators %}
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <label class="form-label mb-1" style="font-size:0.78rem"><i class="bi bi-file-earmark-text"></i> Αριθμός αναφοράς εγγράφου</label>
+                    <input type="text" name="ref_no" class="form-control form-control-sm" value="{{ ref_no or '' }}"
+                           placeholder="π.χ. F1054" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% set categories = indicators|map(attribute='category')|unique|list %}
     {% for cat in categories %}
     <div class="card mb-3">
@@ -51,10 +95,11 @@
         <div class="card-body p-0">
             <table class="table table-sm mb-0 align-middle" style="font-size:0.86rem">
                 <thead><tr>
-                    <th style="width:42%">Δείκτης</th>
+                    <th style="width:34%">Δείκτης</th>
                     <th style="width:13%">Στόχος / Όρια</th>
-                    <th style="width:13%">Τιμή {% if indicators and indicators[0] %}{% endif %}</th>
-                    <th style="width:8%">Κατάσταση</th>
+                    <th style="width:13%">Αποτέλεσμα</th>
+                    {% if scored %}<th style="width:13%">Βαθμολογία</th>{% endif %}
+                    <th style="width:7%">Κατάσταση</th>
                     <th>Σχόλιο</th>
                 </tr></thead>
                 <tbody>
@@ -70,11 +115,25 @@
                     <td style="font-size:0.78rem" class="text-muted">{{ ind.limits or '—' }}</td>
                     <td>
                         <input type="text" name="val_{{ ind.id }}" class="form-control form-control-sm text-end"
-                               inputmode="decimal" value="{{ ind.value|fmtnum if ind.value is not none else '' }}"
+                               value="{{ ind.result_text if ind.result_text else (ind.value|fmtnum if ind.value is not none else '') }}"
+                               placeholder="αριθμός ή NO DATA"
                                {% if not editable %}disabled{% endif %}>
                     </td>
+                    {% if scored %}
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="score_{{ ind.id }}" class="form-control form-control-sm text-end score-input{% if '.' not in ind.code %} score-top{% endif %}"
+                                   {% if '.' not in ind.code and ind.max_score is not none %}data-max="{{ ind.max_score }}"{% endif %}
+                                   inputmode="decimal" value="{{ ind.score|fmtnum if ind.score is not none else '' }}"
+                                   {% if not editable %}disabled{% endif %}>
+                            {% if ind.max_score is not none %}<span class="input-group-text">/ {{ ind.max_score|fmtnum }}</span>{% endif %}
+                        </div>
+                    </td>
+                    {% endif %}
                     <td class="text-center">
-                        {% if ind.status %}
+                        {% if ind.no_data %}
+                        <span class="badge bg-secondary badge-status" title="Χωρίς δεδομένα">Δ/Υ</span>
+                        {% elif ind.status %}
                         <span class="badge bg-{{ STATUS_META[ind.status][0] }} badge-status" title="{{ STATUS_META[ind.status][1] }}">●</span>
                         {% endif %}
                     </td>
@@ -89,16 +148,38 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-warning">Δεν υπάρχουν ενεργοί δείκτες για την περίοδο αυτή.</div>
+    <div class="alert alert-warning">Δεν υπάρχουν ενεργοί δείκτες για την επιλογή αυτή.</div>
     {% endfor %}
 
     {% if editable and indicators %}
     <div class="mb-4">
         <button type="submit" class="btn btn-success">
-            <i class="bi bi-check-lg"></i> Αποθήκευση όλων ({{ MONTHS[month] }} {{ year }})
+            <i class="bi bi-check-lg"></i> Αποθήκευση όλων ({{ MONTHS[month_from] }}{% if month_to != month_from %}–{{ MONTHS[month_to] }}{% endif %} {{ year }}{% if grp %} · {{ grp }}{% endif %})
         </button>
-        <span class="text-muted ms-2" style="font-size:0.8rem">Κενή τιμή = διαγραφή τυχόν υπάρχουσας καταχώρησης.</span>
+        <span class="text-muted ms-2" style="font-size:0.8rem">Κενό Αποτέλεσμα &amp; Βαθμολογία = διαγραφή τυχόν υπάρχουσας καταχώρησης. Γράψε «NO DATA» όπου δεν υπάρχουν στοιχεία.</span>
     </div>
     {% endif %}
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var tops = document.querySelectorAll('.score-top');
+    function recalc() {
+        var s = 0, m = 0;
+        tops.forEach(function (i) {
+            var v = parseFloat((i.value || '').replace(',', '.'));
+            if (!isNaN(v)) s += v;
+            var mx = parseFloat(i.dataset.max);
+            if (!isNaN(mx)) m += mx;
+        });
+        var ts = document.getElementById('totScore'), tm = document.getElementById('totMax');
+        if (ts) ts.textContent = Math.round(s * 100) / 100;
+        if (tm) tm.textContent = Math.round(m * 100) / 100;
+    }
+    tops.forEach(function (i) { i.addEventListener('input', recalc); });
+    recalc();
+})();
+</script>
 {% endblock %}

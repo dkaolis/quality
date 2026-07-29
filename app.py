@@ -46,6 +46,11 @@ os.makedirs(REPORTS_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {"doc", "docx", "xls", "xlsx", "pdf"}
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 
+# Στο dev (QUALITY_ENV=dev) επαναφόρτωση templates ανά request, ώστε αλλαγές σε .html να φαίνονται άμεσα
+if os.environ.get("QUALITY_ENV") == "dev":
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.jinja_env.auto_reload = True
+
 logging.basicConfig(level=logging.INFO)
 logger = app.logger
 
@@ -366,8 +371,21 @@ SCHEMA_STATEMENTS = [
     ){ENGINE}""",
 ]
 
-# Idempotent ALTERs για μελλοντικές migrations — (sql, πρέπει-να-αγνοηθεί-αν-υπάρχει)
-ALTER_STATEMENTS = []
+# Idempotent ALTERs για μελλοντικές migrations — τρέχουν στο boot, αγνοούνται αν υπάρχουν ήδη
+ALTER_STATEMENTS = [
+    # Ομαδοποίηση δεικτών (π.χ. ΤΑΕΠ Ενηλίκων / ΤΑΕΠ Παίδων) & σύστημα βαθμολογίας
+    "ALTER TABLE indicators ADD COLUMN grp VARCHAR(100)",
+    "ALTER TABLE indicators ADD COLUMN max_score DOUBLE",
+    "ALTER TABLE indicator_values ADD COLUMN score DOUBLE",
+    "ALTER TABLE indicator_values ADD COLUMN result_text VARCHAR(100)",
+    # Χρονικό διάστημα καταχώρησης (Από/Μέχρι μήνα)· το month κρατά το τέλος (month_to) για γραφήματα/μοναδικότητα
+    "ALTER TABLE indicator_values ADD COLUMN month_from INTEGER",
+    "ALTER TABLE indicator_values ADD COLUMN month_to INTEGER",
+    # Αριθμός αναφοράς εγγράφου (π.χ. F1054) — ανά ομάδα/περίοδο
+    "ALTER TABLE indicator_values ADD COLUMN ref_no VARCHAR(50)",
+    # Σήμανση «χωρίς δεδομένα» (π.χ. καταχώρηση «NO DATA» αντί αριθμού)
+    "ALTER TABLE indicator_values ADD COLUMN no_data INTEGER DEFAULT 0",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -500,6 +518,52 @@ def init_db():
                        (code, name, cat, i))
         logger.info("Έγινε seed 8 πρότυπων διαδικασιών")
 
+    # Seed δεικτών ΤΑΕΠ (ΓΝ Λευκωσίας) — δύο ομάδες: Ενηλίκων & Παίδων.
+    # Ίδιοι ορισμοί, ξεχωριστοί δείκτες ανά ομάδα. Τρέχει μία φορά (idempotent με INSERT IGNORE).
+    if not db_execute("SELECT id FROM indicators WHERE grp='ΤΑΕΠ Ενηλίκων' LIMIT 1", fetch=True):
+        # (num, name, category, unit, direction, target, low, high, max_score, description)
+        taep_specs = [
+            ("01", "Ανατροφοδότηση Ασθενών", "Εμπειρία Ασθενή", "/9", "higher_better",
+             None, None, None, 15, "Μέση βαθμολογία όλων των ερωτηματολογίων που έχουν συλλεγεί για το ΤΑΕΠ."),
+            ("02", "Χρόνος μέχρι τη Διαλογή", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             90, 90, None, 10, "Ποσοστό επισκέψεων με διαλογή εντός 10 λεπτών."),
+            ("03", "Χρόνος από τη Διαλογή μέχρι τη Διαχείριση", "Πρόσβαση & Ροή Ασθενών", "", "higher_better",
+             None, None, None, 20, "Σύνολο βαθμολογίας των επιμέρους κριτηρίων για τις κατηγορίες ESI (άθροισμα 3.1–3.4)."),
+            ("03.1", "Χρόνος από τη Διαλογή μέχρι τη Διαχείριση – ESI 1", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             90, 90, None, 5, "Ποσοστό επισκέψεων με χρόνο μέχρι τη διαχείριση εντός 5 λεπτών."),
+            ("03.2", "Χρόνος από τη Διαλογή μέχρι τη Διαχείριση – ESI 2", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             90, 90, None, 5, "Ποσοστό επισκέψεων με χρόνο μέχρι τη διαχείριση εντός 10 λεπτών."),
+            ("03.3", "Χρόνος από τη Διαλογή μέχρι τη Διαχείριση – ESI 3", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             90, 90, None, 5, "Ποσοστό επισκέψεων με χρόνο μέχρι τη διαχείριση εντός 90 λεπτών."),
+            ("03.4", "Χρόνος από τη Διαλογή μέχρι τη Διαχείριση – ESI 4", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             90, 90, None, 5, "Ποσοστό επισκέψεων με χρόνο μέχρι τη διαχείριση εντός 240 λεπτών."),
+            ("04", "Συνολικός Χρόνος Διεκπεραίωσης Περιστατικού", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             90, 90, None, 10, "Ποσοστό επισκέψεων με χρόνο μέχρι τη διεκπεραίωση εντός 4 ωρών."),
+            ("05", "Χρόνος Αποδέσμευσης Ασθενοφόρου", "Πρόσβαση & Ροή Ασθενών", "%", "higher_better",
+             70, 50, None, 10, "Ποσοστό ασθενοφόρων που αποδεσμεύονται εντός 15 λεπτών. Βαθμολογία: ≥70%→10, 50–70%→5, <50%→0."),
+            ("06", "Ποσοστό ασθενών που αποχωρούν χωρίς να τύχουν διαχείρισης", "Κλινική Ασφάλεια", "%", "lower_better",
+             5, None, 5, 5, "Ποσοστό ασθενών που εγκαταλείπουν το ΤΑΕΠ πριν ολοκληρωθεί η κλινική τους διαχείριση."),
+            ("07", "Ποσοστό ασθενών με επανεπισκέψεις σε ΤΑΕΠ εντός 72 ωρών", "Κλινική Αποτελεσματικότητα", "%", "lower_better",
+             5, None, 5, 15, "Ένδειξη ποιότητας φροντίδας και πληρότητας αρχικής αντιμετώπισης."),
+            ("08", "Τεκμηρίωση εκπαίδευσης ομάδας διαλογής", "Τεκμηρίωση", "", "higher_better",
+             None, None, None, 15, "Επαλήθευση εκπαίδευσης και πιστοποίησης του προσωπικού που εκτελεί τη διαλογή (ΕΠΙΤΥΧΙΑ/ΑΠΟΤΥΧΙΑ)."),
+        ]
+        taep_groups = [("ΤΑΕΠ Ενηλίκων", "TAD"), ("ΤΑΕΠ Παίδων", "TPD")]
+        for gi, (gname, prefix) in enumerate(taep_groups):
+            for si, (num, name, cat, unit, direction, target, low, high, maxsc, desc) in enumerate(taep_specs):
+                db_execute(
+                    f"""{INSERT_IGNORE} indicators (code, name, category, description, unit, direction,
+                       target_value, limit_low, limit_high, frequency, sort_order, active, grp, max_score)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (f"{prefix}-{num}", name, cat, desc, unit, direction,
+                     target, low, high, "monthly", si, 1, gname, maxsc))
+        logger.info("Έγινε seed δεικτών ΤΑΕΠ (Ενηλίκων & Παίδων)")
+
+    # Migrations δεδομένων (idempotent): παλιοί κωδικοί TEN-→TAD-, συχνότητα ΤΑΕΠ → Μηνιαία
+    db_execute("UPDATE indicators SET code=REPLACE(code, 'TEN-', 'TAD-') WHERE code LIKE 'TEN-%'")
+    db_execute("UPDATE indicators SET frequency='monthly' "
+               "WHERE grp IN ('ΤΑΕΠ Ενηλίκων','ΤΑΕΠ Παίδων') AND frequency='four_monthly'")
+
 
 try:
     init_db()
@@ -624,7 +688,7 @@ def latest_period_alerts():
                i.target_value, i.limit_low, i.limit_high, i.category
         FROM indicator_values iv
         JOIN indicators i ON i.id = iv.indicator_id
-        WHERE i.active = 1
+        WHERE i.active = 1 AND (iv.no_data IS NULL OR iv.no_data = 0)
         ORDER BY iv.year DESC, iv.month DESC
     """, fetch=True) or []
     seen = set()
@@ -838,7 +902,7 @@ def generate_report_docx(year, month_from, month_to, hosp_codes):
     values = db_execute("""
         SELECT indicator_id, hospital_code, AVG(value) AS avg_val, COUNT(*) AS cnt
         FROM indicator_values
-        WHERE year=%s AND month BETWEEN %s AND %s
+        WHERE year=%s AND month BETWEEN %s AND %s AND (no_data IS NULL OR no_data=0)
         GROUP BY indicator_id, hospital_code
     """, (year, month_from, month_to), fetch=True) or []
     vmap = {(v["indicator_id"], v["hospital_code"]): v["avg_val"] for v in values}
@@ -1079,19 +1143,29 @@ def alerts_list():
 @login_required
 def indicators_list():
     category = request.args.get("category") or ""
-    sql = "SELECT * FROM indicators"
-    params = []
+    grp = request.args.get("grp") or ""
+    conds, params = [], []
     if category:
-        sql += " WHERE category=%s"
+        conds.append("category=%s")
         params.append(category)
-    sql += " ORDER BY category, sort_order, code"
+    if grp:
+        conds.append("grp=%s")
+        params.append(grp)
+    sql = "SELECT * FROM indicators"
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    # Ομάδες (grp) πρώτα (π.χ. ΤΑΕΠ), μετά οι γενικοί δείκτες χωρίς ομάδα
+    sql += " ORDER BY (grp IS NULL OR grp=''), grp, category, sort_order, code"
     indicators = db_execute(sql, tuple(params), fetch=True) or []
     for ind in indicators:
         ind["limits"] = limits_text(ind)
     cat_rows = db_execute("SELECT DISTINCT category FROM indicators ORDER BY category", fetch=True) or []
     categories = [r["category"] for r in cat_rows if r["category"]]
-    return render_template("indicators_list.html", indicators=indicators,
-                           categories=categories, sel_category=category)
+    grp_rows = db_execute(
+        "SELECT DISTINCT grp FROM indicators WHERE grp IS NOT NULL AND grp<>'' ORDER BY grp", fetch=True) or []
+    groups = [r["grp"] for r in grp_rows]
+    return render_template("indicators_list.html", indicators=indicators, categories=categories,
+                           sel_category=category, sel_grp=grp, groups=groups)
 
 
 def _indicator_from_form():
@@ -1111,6 +1185,8 @@ def _indicator_from_form():
         "frequency": request.form.get("frequency") or "monthly",
         "sort_order": int(request.form.get("sort_order") or 0),
         "active": 1 if request.form.get("active") else 0,
+        "grp": (request.form.get("grp") or "").strip() or None,
+        "max_score": fnum("max_score"),
     }
 
 
@@ -1126,11 +1202,11 @@ def indicator_new():
         else:
             rid = db_execute(
                 """INSERT INTO indicators (code, name, category, description, unit, direction,
-                   target_value, limit_low, limit_high, frequency, sort_order, active)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                   target_value, limit_low, limit_high, frequency, sort_order, active, grp, max_score)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (d["code"], d["name"], d["category"], d["description"], d["unit"], d["direction"],
                  d["target_value"], d["limit_low"], d["limit_high"], d["frequency"],
-                 d["sort_order"], d["active"]), lastrowid=True)
+                 d["sort_order"], d["active"], d["grp"], d["max_score"]), lastrowid=True)
             log_action("create", "indicator", rid, d["code"])
             flash("Ο δείκτης δημιουργήθηκε.", "success")
             return redirect(url_for("indicators_list"))
@@ -1151,10 +1227,10 @@ def indicator_edit(ind_id):
             db_execute(
                 """UPDATE indicators SET code=%s, name=%s, category=%s, description=%s, unit=%s,
                    direction=%s, target_value=%s, limit_low=%s, limit_high=%s, frequency=%s,
-                   sort_order=%s, active=%s WHERE id=%s""",
+                   sort_order=%s, active=%s, grp=%s, max_score=%s WHERE id=%s""",
                 (d["code"], d["name"], d["category"], d["description"], d["unit"], d["direction"],
                  d["target_value"], d["limit_low"], d["limit_high"], d["frequency"],
-                 d["sort_order"], d["active"], ind_id))
+                 d["sort_order"], d["active"], d["grp"], d["max_score"], ind_id))
             log_action("update", "indicator", ind_id, d["code"])
             flash("Ο δείκτης ενημερώθηκε.", "success")
             return redirect(url_for("indicators_list"))
@@ -1172,7 +1248,7 @@ def indicator_view(ind_id):
     hospitals = get_hospitals()
     values = db_execute(
         "SELECT * FROM indicator_values WHERE indicator_id=%s AND year=%s", (ind_id, year), fetch=True) or []
-    vmap = {(v["hospital_code"], v["month"]): v["value"] for v in values}
+    vmap = {(v["hospital_code"], v["month"]): v["value"] for v in values if not v.get("no_data")}
     datasets = []
     for h in hospitals:
         data = [vmap.get((h["code"], m)) for m in range(1, 13)]
@@ -1183,7 +1259,7 @@ def indicator_view(ind_id):
         SELECT * FROM indicator_values WHERE indicator_id=%s
         ORDER BY year DESC, month DESC, hospital_code LIMIT 60""", (ind_id,), fetch=True) or []
     for r in recent:
-        r["status"] = value_status(ind, r["value"])
+        r["status"] = None if r.get("no_data") else value_status(ind, r["value"])
     years = [r["year"] for r in db_execute(
         "SELECT DISTINCT year FROM indicator_values WHERE indicator_id=%s ORDER BY year DESC",
         (ind_id,), fetch=True) or []]
@@ -1210,65 +1286,118 @@ def _indicators_for_month(month):
 @app.route("/values", methods=["GET", "POST"])
 @login_required
 def values_entry():
-    hospitals = get_hospitals()
     today = date.today()
-    default_hosp = session.get("hospital_code") or (hospitals[0]["code"] if hospitals else "")
-    hosp = request.values.get("hospital") or default_hosp
+    # Διαθέσιμες ομάδες δεικτών (π.χ. ΤΑΕΠ Ενηλίκων / ΤΑΕΠ Παίδων)
+    grp_rows = db_execute(
+        "SELECT DISTINCT grp FROM indicators WHERE grp IS NOT NULL AND grp<>'' ORDER BY grp", fetch=True) or []
+    groups = [r["grp"] for r in grp_rows]
+    grp = request.values.get("grp") or ""
+    if grp and grp not in groups:
+        grp = ""
+
+    # Το σύστημα λειτουργεί προς το παρόν μόνο για το Γενικό Νοσοκομείο Λευκωσίας — χωρίς επιλογή νοσηλευτηρίου
+    hosp = "NGH"
+    hosp_name = hospital_names().get(hosp, "Γενικό Νοσοκομείο Λευκωσίας")
     year = int(request.values.get("year") or today.year)
-    month = int(request.values.get("month") or today.month)
+
+    # Χρονικό διάστημα (Από/Μέχρι μήνα). Fallback στο παλιό 'month' για συμβατότητα.
+    def _m(name):
+        try:
+            return min(12, max(1, int(request.values.get(name) or request.values.get("month") or today.month)))
+        except (TypeError, ValueError):
+            return today.month
+    month_from = _m("month_from")
+    month_to = _m("month_to")
+    if month_from > month_to:
+        month_from, month_to = month_to, month_from
+    month = month_to  # κλειδί περιόδου (τέλος διαστήματος) για μοναδικότητα & γραφήματα
     editable = can_edit_hospital(hosp)
 
-    indicators = _indicators_for_month(month)
+    # Όλοι οι ενεργοί δείκτες της επιλεγμένης ομάδας ('' = γενικοί)· η περίοδος επιλέγεται χειροκίνητα
+    indicators = [i for i in (db_execute(
+        "SELECT * FROM indicators WHERE active=1 ORDER BY category, sort_order, code", fetch=True) or [])
+        if (i.get("grp") or "") == grp]
+    scored = bool(grp)  # οι ομάδες ΤΑΕΠ έχουν σύστημα βαθμολογίας (Αποτέλεσμα + Βαθμολογία)
 
     if request.method == "POST":
         if not editable:
-            flash("Δεν έχετε δικαίωμα καταχώρησης για αυτό το νοσηλευτήριο.", "danger")
-            return redirect(url_for("values_entry", hospital=hosp, year=year, month=month))
+            flash("Δεν έχετε δικαίωμα καταχώρησης.", "danger")
+            return redirect(url_for("values_entry", year=year, month_from=month_from, month_to=month_to, grp=grp))
+        ref_no = (request.form.get("ref_no") or "").strip()[:50]
         saved = deleted = 0
         for ind in indicators:
-            raw = (request.form.get(f"val_{ind['id']}") or "").strip().replace(",", ".")
+            raw = (request.form.get(f"val_{ind['id']}") or "").strip()
+            score_raw = (request.form.get(f"score_{ind['id']}") or "").strip().replace(",", ".")
             comment = (request.form.get(f"com_{ind['id']}") or "").strip()[:500]
             existing = db_execute(
                 "SELECT id FROM indicator_values WHERE indicator_id=%s AND hospital_code=%s AND year=%s AND month=%s",
                 (ind["id"], hosp, year, month), fetch=True)
-            if raw == "":
+            if raw == "" and score_raw == "":
                 if existing:
                     db_execute("DELETE FROM indicator_values WHERE id=%s", (existing[0]["id"],))
                     deleted += 1
                 continue
+            # Αριθμητική τιμή (για χρωματισμό/γραφήματα)· μη-αριθμητικό αποτέλεσμα (π.χ. «NO DATA»)
+            # γίνεται δεκτό ως «χωρίς δεδομένα» (no_data=1) και ΔΕΝ μετράει ως 0 σε στατιστικά/ειδοποιήσεις.
+            num = raw.replace(",", ".").rstrip("%").strip()
+            no_data = 0
             try:
-                value = float(raw)
+                value = float(num)
             except ValueError:
-                flash(f"Μη έγκυρη τιμή για τον δείκτη {ind['code']} — αγνοήθηκε.", "warning")
-                continue
+                value = 0.0
+                if raw != "":
+                    no_data = 1
+            result_text = raw[:100] or None
+            try:
+                score = float(score_raw) if score_raw else None
+            except ValueError:
+                score = None
             if existing:
                 db_execute(
-                    "UPDATE indicator_values SET value=%s, comment=%s, created_by=%s, updated_at=" + NOW + " WHERE id=%s",
-                    (value, comment, session["username"], existing[0]["id"]))
+                    "UPDATE indicator_values SET value=%s, result_text=%s, score=%s, no_data=%s, comment=%s, "
+                    "month_from=%s, month_to=%s, created_by=%s, updated_at=" + NOW + " WHERE id=%s",
+                    (value, result_text, score, no_data, comment, month_from, month_to, session["username"], existing[0]["id"]))
             else:
                 db_execute(
-                    "INSERT INTO indicator_values (indicator_id, hospital_code, year, month, value, comment, created_by) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                    (ind["id"], hosp, year, month, value, comment, session["username"]))
+                    "INSERT INTO indicator_values (indicator_id, hospital_code, year, month, month_from, month_to, "
+                    "value, result_text, score, no_data, comment, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (ind["id"], hosp, year, month, month_from, month_to, value, result_text, score, no_data, comment, session["username"]))
             saved += 1
-        log_action("save_values", "indicator_values", f"{hosp}/{year}-{month:02d}",
+        # Αριθμός αναφοράς εγγράφου — εφαρμόζεται σε όλες τις γραμμές της περιόδου της ομάδας
+        ids = [i["id"] for i in indicators]
+        if ids:
+            ph = ",".join(["%s"] * len(ids))
+            db_execute(
+                f"UPDATE indicator_values SET ref_no=%s WHERE hospital_code=%s AND year=%s AND month=%s "
+                f"AND indicator_id IN ({ph})",
+                tuple([ref_no or None, hosp, year, month] + ids))
+        log_action("save_values", "indicator_values",
+                   f"{hosp}/{year}-{month_from:02d}..{month_to:02d}" + (f" · {grp}" if grp else "")
+                   + (f" · {ref_no}" if ref_no else ""),
                    f"{saved} τιμές, {deleted} διαγραφές")
         flash(f"Αποθηκεύτηκαν {saved} τιμές" + (f", διαγράφηκαν {deleted}." if deleted else "."), "success")
-        return redirect(url_for("values_entry", hospital=hosp, year=year, month=month))
+        return redirect(url_for("values_entry", year=year, month_from=month_from, month_to=month_to, grp=grp))
 
     existing = db_execute(
         "SELECT * FROM indicator_values WHERE hospital_code=%s AND year=%s AND month=%s",
         (hosp, year, month), fetch=True) or []
     vmap = {v["indicator_id"]: v for v in existing}
+    ref_no = ""
     for ind in indicators:
         v = vmap.get(ind["id"])
+        if v and v.get("ref_no") and not ref_no:
+            ref_no = v["ref_no"]
         ind["value"] = v["value"] if v else None
+        ind["result_text"] = v.get("result_text") if v else None
+        ind["score"] = v.get("score") if v else None
+        ind["no_data"] = v.get("no_data") if v else 0
         ind["comment"] = v["comment"] if v else ""
-        ind["status"] = value_status(ind, ind["value"]) if v else None
+        ind["status"] = None if (v and v.get("no_data")) else (value_status(ind, ind["value"]) if v else None)
         ind["limits"] = limits_text(ind)
     years = list(range(today.year - 5, today.year + 1))[::-1]
-    return render_template("values_entry.html", hospitals=hospitals, hosp=hosp, year=year,
-                           month=month, years=years, indicators=indicators, editable=editable)
+    return render_template("values_entry.html", hosp=hosp, hosp_name=hosp_name, year=year,
+                           month_from=month_from, month_to=month_to, years=years, indicators=indicators,
+                           editable=editable, groups=groups, grp=grp, scored=scored, ref_no=ref_no)
 
 
 # ---------------------------------------------------------------------------
@@ -1290,7 +1419,7 @@ def compare_view():
     hospitals = get_hospitals()
     values = db_execute(
         "SELECT * FROM indicator_values WHERE indicator_id=%s AND year=%s", (ind_id, year), fetch=True) or []
-    vmap = {(v["hospital_code"], v["month"]): v["value"] for v in values}
+    vmap = {(v["hospital_code"], v["month"]): v["value"] for v in values if not v.get("no_data")}
 
     datasets, rows, avg_labels, avg_data = [], [], [], []
     for h in hospitals:
@@ -1306,7 +1435,8 @@ def compare_view():
 
     prev_year_values = db_execute(
         "SELECT hospital_code, AVG(value) AS avg_val FROM indicator_values "
-        "WHERE indicator_id=%s AND year=%s GROUP BY hospital_code", (ind_id, year - 1), fetch=True) or []
+        "WHERE indicator_id=%s AND year=%s AND (no_data IS NULL OR no_data=0) GROUP BY hospital_code",
+        (ind_id, year - 1), fetch=True) or []
     prev_avg = {r["hospital_code"]: r["avg_val"] for r in prev_year_values}
 
     years = list(range(date.today().year - 5, date.today().year + 1))[::-1]
