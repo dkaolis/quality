@@ -1406,43 +1406,85 @@ def values_entry():
 @app.route("/compare")
 @login_required
 def compare_view():
-    indicators = db_execute("SELECT * FROM indicators WHERE active=1 ORDER BY category, sort_order, code",
-                            fetch=True) or []
-    if not indicators:
-        flash("Δεν υπάρχουν ενεργοί δείκτες.", "info")
-        return redirect(url_for("indicators_list"))
-    ind_id = int(request.args.get("indicator") or indicators[0]["id"])
-    year = int(request.args.get("year") or date.today().year)
-    ind = next((i for i in indicators if i["id"] == ind_id), indicators[0])
-    ind_id = ind["id"]
+    grp_rows = db_execute(
+        "SELECT DISTINCT grp FROM indicators WHERE grp IS NOT NULL AND grp<>'' ORDER BY grp", fetch=True) or []
+    groups = [r["grp"] for r in grp_rows]
+    grp = request.args.get("grp") or ""
+    if grp and grp not in groups:
+        grp = ""
+    inds = [i for i in (db_execute(
+        "SELECT * FROM indicators WHERE active=1 ORDER BY category, sort_order, code", fetch=True) or [])
+        if (i.get("grp") or "") == grp]
+    scored = bool(grp)
+    options = []
+    if scored:
+        options.append({"id": "total", "label": "Ολική Βαθμολογία (σύνολο)"})
+    for i in inds:
+        options.append({"id": str(i["id"]), "label": f"{i['code']} — {i['name']}"})
+    sel = request.args.get("indicator") or (options[0]["id"] if options else "")
+    is_total = scored and sel == "total"
 
-    hospitals = get_hospitals()
-    values = db_execute(
-        "SELECT * FROM indicator_values WHERE indicator_id=%s AND year=%s", (ind_id, year), fetch=True) or []
-    vmap = {(v["hospital_code"], v["month"]): v["value"] for v in values if not v.get("no_data")}
+    def plabel(y, mf, mt):
+        try:
+            return f"{MONTHS_SHORT[mf]} {y}" if mf == mt else f"{MONTHS_SHORT[mf]}–{MONTHS_SHORT[mt]} {y}"
+        except Exception:
+            return str(y)
 
-    datasets, rows, avg_labels, avg_data = [], [], [], []
-    for h in hospitals:
-        data = [vmap.get((h["code"], m)) for m in range(1, 13)]
-        cells = [{"value": v, "status": value_status(ind, v)} for v in data]
-        has_data = any(v is not None for v in data)
-        if has_data:
-            datasets.append({"label": h["name_el"], "data": data})
-            nums = [v for v in data if v is not None]
-            avg_labels.append(h["code"])
-            avg_data.append(round(sum(nums) / len(nums), 2))
-        rows.append({"hospital": h, "cells": cells, "has_data": has_data})
+    hnames = hospital_names()
+    labels, datasets, series = [], [], []
+    title, unit, max_score = "", "", None
+    lim_target = lim_low = lim_high = None
 
-    prev_year_values = db_execute(
-        "SELECT hospital_code, AVG(value) AS avg_val FROM indicator_values "
-        "WHERE indicator_id=%s AND year=%s AND (no_data IS NULL OR no_data=0) GROUP BY hospital_code",
-        (ind_id, year - 1), fetch=True) or []
-    prev_avg = {r["hospital_code"]: r["avg_val"] for r in prev_year_values}
+    if is_total:
+        rows = db_execute(
+            "SELECT iv.year AS y, iv.month AS m, iv.month_from AS mf, iv.month_to AS mt, iv.score AS score "
+            "FROM indicator_values iv JOIN indicators i ON i.id = iv.indicator_id "
+            "WHERE i.grp=%s AND iv.hospital_code='NGH' AND i.code NOT LIKE %s", (grp, "%.%"), fetch=True) or []
+        agg = {}
+        for r in rows:
+            if r["score"] is None:
+                continue
+            mf = r["mf"] or r["m"]; mt = r["mt"] or r["m"]
+            agg[(r["y"], mf, mt)] = agg.get((r["y"], mf, mt), 0) + r["score"]
+        periods = sorted(agg, key=lambda k: (k[0], k[2], k[1]))
+        labels = [plabel(*pp) for pp in periods]
+        datasets = [{"label": "Ολική Βαθμολογία", "data": [round(agg[pp], 2) for pp in periods]}]
+        title = f"Ολική Βαθμολογία — {grp}"
+        unit = "βαθμοί (σύνολο)"
+    elif sel:
+        ind = next((i for i in inds if str(i["id"]) == str(sel)), inds[0] if inds else None)
+        if ind:
+            rows = db_execute(
+                "SELECT hospital_code AS hc, year AS y, month AS m, month_from AS mf, month_to AS mt, "
+                "value AS v, score AS sc, comment AS cm, result_text AS rt, no_data AS nd "
+                "FROM indicator_values WHERE indicator_id=%s", (ind["id"],), fetch=True) or []
+            pset = {}
+            for r in rows:
+                mf = r["mf"] or r["m"]; mt = r["mt"] or r["m"]
+                pset[(r["y"], mf, mt)] = True
+            periods = sorted(pset, key=lambda k: (k[0], k[2], k[1]))
+            pidx = {pp: idx for idx, pp in enumerate(periods)}
+            labels = [plabel(*pp) for pp in periods]
+            byhc = {}
+            for r in rows:
+                mf = r["mf"] or r["m"]; mt = r["mt"] or r["m"]
+                j = pidx[(r["y"], mf, mt)]
+                d = byhc.setdefault(r["hc"], {"values": [None] * len(periods), "scores": [None] * len(periods),
+                                             "comments": [""] * len(periods), "results": [""] * len(periods)})
+                d["values"][j] = None if r.get("nd") else r["v"]
+                d["scores"][j] = r["sc"]
+                d["comments"][j] = r.get("cm") or ""
+                d["results"][j] = r.get("rt") or ("" if r["v"] is None else fmtnum_filter(r["v"]))
+            series = [dict(label=hnames.get(hc, hc), **d) for hc, d in byhc.items()]
+            title = f"{ind['code']} — {ind['name']}"
+            unit = ind.get("unit") or ""
+            max_score = ind.get("max_score")
+            lim_target = ind.get("target_value"); lim_low = ind.get("limit_low"); lim_high = ind.get("limit_high")
 
-    years = list(range(date.today().year - 5, date.today().year + 1))[::-1]
-    return render_template("compare.html", indicators=indicators, ind=ind, year=year, years=years,
-                           datasets=datasets, rows=rows, avg_labels=avg_labels, avg_data=avg_data,
-                           prev_avg=prev_avg, limits=limits_text(ind))
+    return render_template("compare.html", groups=groups, grp=grp, options=options, sel=str(sel),
+                           labels=labels, datasets=datasets, series=series, is_total=is_total,
+                           title=title, unit=unit, scored=scored, max_score=max_score,
+                           lim_target=lim_target, lim_low=lim_low, lim_high=lim_high)
 
 
 # ---------------------------------------------------------------------------
