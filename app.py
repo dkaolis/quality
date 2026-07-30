@@ -395,9 +395,11 @@ ROLES = {
     "admin": "Διαχειριστής",
     "central": "Κεντρική Μονάδα Ποιότητας",
     "quality_officer": "Λειτουργός Διασφάλισης Ποιότητας",
+    "quality_add": "Καταχώρηση (χωρίς τροποποίηση)",
     "viewer": "Διοίκηση (Προβολή)",
 }
 EDIT_ALL_ROLES = ("admin", "central")  # επεξεργάζονται δεδομένα όλων των νοσηλευτηρίων
+ADD_ROLES = ("admin", "central", "quality_officer", "quality_add")  # μπορούν να προσθέτουν δεδομένα
 
 MONTHS = {
     1: "Ιανουάριος", 2: "Φεβρουάριος", 3: "Μάρτιος", 4: "Απρίλιος",
@@ -608,6 +610,18 @@ def can_edit_hospital(hospital_code):
         return True
     if role == "quality_officer":
         return session.get("hospital_code") == hospital_code
+    return False
+
+
+def can_add_hospital(hospital_code):
+    """Ο χρήστης μπορεί να ΠΡΟΣΘΕΣΕΙ νέα δεδομένα (ο ρόλος quality_add προσθέτει αλλά ΔΕΝ τροποποιεί υπάρχοντα)."""
+    role = session.get("role")
+    if role in EDIT_ALL_ROLES:
+        return True
+    if role == "quality_officer":
+        return session.get("hospital_code") == hospital_code
+    if role == "quality_add":
+        return True
     return False
 
 
@@ -1311,7 +1325,9 @@ def values_entry():
     if month_from > month_to:
         month_from, month_to = month_to, month_from
     month = month_to  # κλειδί περιόδου (τέλος διαστήματος) για μοναδικότητα & γραφήματα
-    editable = can_edit_hospital(hosp)
+    can_edit = can_edit_hospital(hosp)   # τροποποίηση/διαγραφή υπαρχόντων
+    can_add = can_add_hospital(hosp)     # προσθήκη νέων (π.χ. ρόλος quality_add)
+    editable = can_add                   # μπορεί να αλληλεπιδράσει με τη φόρμα
 
     # Όλοι οι ενεργοί δείκτες της επιλεγμένης ομάδας ('' = γενικοί)· η περίοδος επιλέγεται χειροκίνητα
     indicators = [i for i in (db_execute(
@@ -1324,7 +1340,7 @@ def values_entry():
             flash("Δεν έχετε δικαίωμα καταχώρησης.", "danger")
             return redirect(url_for("values_entry", year=year, month_from=month_from, month_to=month_to, grp=grp))
         ref_no = (request.form.get("ref_no") or "").strip()[:50]
-        saved = deleted = 0
+        saved = deleted = skipped = 0
         for ind in indicators:
             raw = (request.form.get(f"val_{ind['id']}") or "").strip()
             score_raw = (request.form.get(f"score_{ind['id']}") or "").strip().replace(",", ".")
@@ -1333,7 +1349,7 @@ def values_entry():
                 "SELECT id FROM indicator_values WHERE indicator_id=%s AND hospital_code=%s AND year=%s AND month=%s",
                 (ind["id"], hosp, year, month), fetch=True)
             if raw == "" and score_raw == "":
-                if existing:
+                if existing and can_edit:
                     db_execute("DELETE FROM indicator_values WHERE id=%s", (existing[0]["id"],))
                     deleted += 1
                 continue
@@ -1353,6 +1369,9 @@ def values_entry():
             except ValueError:
                 score = None
             if existing:
+                if not can_edit:
+                    skipped += 1  # ρόλος «προσθήκη»: δεν τροποποιεί υπάρχοντα δεδομένα
+                    continue
                 db_execute(
                     "UPDATE indicator_values SET value=%s, result_text=%s, score=%s, no_data=%s, comment=%s, "
                     "month_from=%s, month_to=%s, created_by=%s, updated_at=" + NOW + " WHERE id=%s",
@@ -1367,15 +1386,19 @@ def values_entry():
         ids = [i["id"] for i in indicators]
         if ids:
             ph = ",".join(["%s"] * len(ids))
-            db_execute(
-                f"UPDATE indicator_values SET ref_no=%s WHERE hospital_code=%s AND year=%s AND month=%s "
-                f"AND indicator_id IN ({ph})",
-                tuple([ref_no or None, hosp, year, month] + ids))
+            ref_sql = (f"UPDATE indicator_values SET ref_no=%s WHERE hospital_code=%s AND year=%s AND month=%s "
+                       f"AND indicator_id IN ({ph})")
+            if not can_edit:
+                ref_sql += " AND (ref_no IS NULL OR ref_no='')"  # ρόλος «προσθήκη»: μόνο σε νέες γραμμές
+            db_execute(ref_sql, tuple([ref_no or None, hosp, year, month] + ids))
         log_action("save_values", "indicator_values",
                    f"{hosp}/{year}-{month_from:02d}..{month_to:02d}" + (f" · {grp}" if grp else "")
                    + (f" · {ref_no}" if ref_no else ""),
-                   f"{saved} τιμές, {deleted} διαγραφές")
-        flash(f"Αποθηκεύτηκαν {saved} τιμές" + (f", διαγράφηκαν {deleted}." if deleted else "."), "success")
+                   f"{saved} τιμές, {deleted} διαγραφές, {skipped} χωρίς αλλαγή")
+        msg = f"Αποθηκεύτηκαν {saved} τιμές" + (f", διαγράφηκαν {deleted}" if deleted else "") + "."
+        if skipped:
+            msg += f" {skipped} υπάρχουσες τιμές δεν τροποποιήθηκαν (δικαίωμα μόνο προσθήκης)."
+        flash(msg, "warning" if skipped else "success")
         return redirect(url_for("values_entry", year=year, month_from=month_from, month_to=month_to, grp=grp))
 
     existing = db_execute(
@@ -1394,10 +1417,13 @@ def values_entry():
         ind["comment"] = v["comment"] if v else ""
         ind["status"] = None if (v and v.get("no_data")) else (value_status(ind, ind["value"]) if v else None)
         ind["limits"] = limits_text(ind)
+        # Κλείδωμα υπαρχόντων για ρόλο «προσθήκη» (δεν τροποποιεί ήδη καταχωρημένα)
+        ind["locked"] = (v is not None) and (not can_edit)
     years = list(range(today.year - 5, today.year + 1))[::-1]
     return render_template("values_entry.html", hosp=hosp, hosp_name=hosp_name, year=year,
                            month_from=month_from, month_to=month_to, years=years, indicators=indicators,
-                           editable=editable, groups=groups, grp=grp, scored=scored, ref_no=ref_no)
+                           editable=editable, can_edit=can_edit, groups=groups, grp=grp,
+                           scored=scored, ref_no=ref_no)
 
 
 # ---------------------------------------------------------------------------
@@ -1585,7 +1611,7 @@ def compliance_new():
     procedures = db_execute("SELECT * FROM procedures WHERE active=1 ORDER BY code", fetch=True) or []
     if request.method == "POST":
         hosp = request.form.get("hospital_code") or ""
-        if not can_edit_hospital(hosp):
+        if not can_add_hospital(hosp):
             flash("Δεν έχετε δικαίωμα καταχώρησης για αυτό το νοσηλευτήριο.", "danger")
             return redirect(url_for("compliance_matrix"))
         score = (request.form.get("score") or "").strip()
@@ -1687,7 +1713,7 @@ def _inspection_from_form():
 def inspection_new():
     if request.method == "POST":
         vals = _inspection_from_form()
-        if not can_edit_hospital(vals[0]):
+        if not can_add_hospital(vals[0]):
             flash("Δεν έχετε δικαίωμα καταχώρησης για αυτό το νοσηλευτήριο.", "danger")
             return redirect(url_for("inspections_list"))
         rid = db_execute(
@@ -1763,7 +1789,7 @@ def documents_list():
 @login_required
 def document_upload():
     hosp = request.form.get("hospital_code") or ""
-    if not can_edit_hospital(hosp):
+    if not can_add_hospital(hosp):
         flash("Δεν έχετε δικαίωμα καταχώρησης εγγράφων για αυτό το νοσηλευτήριο.", "danger")
         return redirect(url_for("documents_list"))
     f = request.files.get("file")
