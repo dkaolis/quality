@@ -49,8 +49,15 @@
         .sidebar .nav-sub2 i { font-size: 0.9rem; }
         .sidebar .user-info {
             margin-top: auto; padding: 0.8rem 1.2rem; border-top: 1px solid rgba(255,255,255,0.08);
-            font-size: 0.78rem; color: #99b3b0; background: rgba(0,0,0,0.15);
+            font-size: 0.78rem; color: #99b3b0; background: var(--sidebar-bg);
+            position: sticky; bottom: 0;
         }
+        .sidebar .logout-btn {
+            display: inline-block; margin-top: 5px; padding: 0.4rem 0.9rem; border-radius: 6px;
+            background: rgba(220,38,38,0.15); color: #fca5a5 !important;
+            border: 1px solid rgba(220,38,38,0.45); font-size: 0.82rem; text-decoration: none;
+        }
+        .sidebar .logout-btn:hover { background: rgba(220,38,38,0.35); color: #fff !important; }
         .sidebar .user-info .role-badge {
             font-size: 0.65rem; padding: 0.15em 0.5em; border-radius: 3px;
             background: rgba(20,184,166,0.2); color: #5eead4;
@@ -194,7 +201,7 @@
             <a href="{{ url_for('change_password') }}" class="text-info text-decoration-none me-2" style="font-size:0.78rem">
                 <i class="bi bi-key"></i> Κωδικός
             </a>
-            <a href="{{ url_for('logout') }}" class="text-danger text-decoration-none" style="font-size:0.78rem">
+            <a href="{{ url_for('logout') }}" class="logout-btn">
                 <i class="bi bi-box-arrow-left"></i> Αποσύνδεση
             </a>
         </div>

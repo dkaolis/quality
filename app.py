@@ -1346,12 +1346,16 @@ def values_entry():
             score_raw = (request.form.get(f"score_{ind['id']}") or "").strip().replace(",", ".")
             comment = (request.form.get(f"com_{ind['id']}") or "").strip()[:500]
             existing = db_execute(
-                "SELECT id FROM indicator_values WHERE indicator_id=%s AND hospital_code=%s AND year=%s AND month=%s",
+                "SELECT id, value, result_text, score FROM indicator_values "
+                "WHERE indicator_id=%s AND hospital_code=%s AND year=%s AND month=%s",
                 (ind["id"], hosp, year, month), fetch=True)
             if raw == "" and score_raw == "":
-                if existing and can_edit:
-                    db_execute("DELETE FROM indicator_values WHERE id=%s", (existing[0]["id"],))
-                    deleted += 1
+                if existing:
+                    if can_edit:
+                        db_execute("DELETE FROM indicator_values WHERE id=%s", (existing[0]["id"],))
+                        deleted += 1
+                    else:
+                        skipped += 1  # προσπάθεια διαγραφής αποθηκευμένου (δεν επιτρέπεται)
                 continue
             # Αριθμητική τιμή (για χρωματισμό/γραφήματα)· μη-αριθμητικό αποτέλεσμα (π.χ. «NO DATA»)
             # γίνεται δεκτό ως «χωρίς δεδομένα» (no_data=1) και ΔΕΝ μετράει ως 0 σε στατιστικά/ειδοποιήσεις.
@@ -1370,7 +1374,12 @@ def values_entry():
                 score = None
             if existing:
                 if not can_edit:
-                    skipped += 1  # ρόλος «προσθήκη»: δεν τροποποιεί υπάρχοντα δεδομένα
+                    # Ρόλος «προσθήκη»: δεν τροποποιεί αποθηκευμένα· μέτρα ως προσπάθεια μόνο αν άλλαξε κάτι
+                    ev = existing[0]
+                    cur_res = ev.get("result_text") or (fmtnum_filter(ev["value"]) if ev["value"] is not None else "")
+                    cur_score = fmtnum_filter(ev["score"]) if ev.get("score") is not None else ""
+                    if raw != cur_res or (score_raw != "" and score_raw != cur_score):
+                        skipped += 1
                     continue
                 db_execute(
                     "UPDATE indicator_values SET value=%s, result_text=%s, score=%s, no_data=%s, comment=%s, "
@@ -1395,10 +1404,11 @@ def values_entry():
                    f"{hosp}/{year}-{month_from:02d}..{month_to:02d}" + (f" · {grp}" if grp else "")
                    + (f" · {ref_no}" if ref_no else ""),
                    f"{saved} τιμές, {deleted} διαγραφές, {skipped} χωρίς αλλαγή")
-        msg = f"Αποθηκεύτηκαν {saved} τιμές" + (f", διαγράφηκαν {deleted}" if deleted else "") + "."
         if skipped:
-            msg += f" {skipped} υπάρχουσες τιμές δεν τροποποιήθηκαν (δικαίωμα μόνο προσθήκης)."
-        flash(msg, "warning" if skipped else "success")
+            flash(f"Δεν μπορείτε να τροποποιήσετε αποθηκευμένα στοιχεία — {skipped} υπάρχουσες τιμές "
+                  f"έμειναν αμετάβλητες." + (f" Αποθηκεύτηκαν {saved} νέες τιμές." if saved else ""), "warning")
+        else:
+            flash(f"Αποθηκεύτηκαν {saved} τιμές" + (f", διαγράφηκαν {deleted}." if deleted else "."), "success")
         return redirect(url_for("values_entry", year=year, month_from=month_from, month_to=month_to, grp=grp))
 
     existing = db_execute(
