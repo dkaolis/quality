@@ -400,6 +400,13 @@ ROLES = {
 }
 EDIT_ALL_ROLES = ("admin", "central")  # επεξεργάζονται δεδομένα όλων των νοσηλευτηρίων
 ADD_ROLES = ("admin", "central", "quality_officer", "quality_add")  # μπορούν να προσθέτουν δεδομένα
+ROLE_PERMISSIONS = {
+    "admin": "Πλήρη δικαιώματα· διαχείριση χρηστών & ρυθμίσεων",
+    "central": "Επεξεργασία όλων των νοσηλευτηρίων· ορισμοί δεικτών/διαδικασιών",
+    "quality_officer": "Καταχώρηση μόνο για το δικό του νοσηλευτήριο· προβολή όλων",
+    "quality_add": "Μόνο προσθήκη νέων δεδομένων (όχι τροποποίηση)· προβολή",
+    "viewer": "Μόνο προβολή",
+}
 
 MONTHS = {
     1: "Ιανουάριος", 2: "Φεβρουάριος", 3: "Μάρτιος", 4: "Απρίλιος",
@@ -1018,6 +1025,7 @@ def generate_report_docx(year, month_from, month_to, hosp_codes):
 def inject_globals():
     ctx = {
         "ROLES": ROLES,
+        "ROLE_PERMISSIONS": ROLE_PERMISSIONS,
         "MONTHS": MONTHS,
         "MONTHS_SHORT": MONTHS_SHORT,
         "DIRECTIONS": DIRECTIONS,
@@ -2046,6 +2054,60 @@ def audit_trail():
     sql += " ORDER BY id DESC LIMIT 300"
     entries = db_execute(sql, tuple(params), fetch=True) or []
     return render_template("audit_trail.html", entries=entries, q=q)
+
+
+# ---------------------------------------------------------------------------
+# Administrator — προστατευμένη ενότητα (ξεκλείδωμα με τον κωδικό του admin)
+# ---------------------------------------------------------------------------
+def _admin_unlocked():
+    return session.get("admin_unlocked") is True
+
+
+@app.route("/administrator/unlock", methods=["GET", "POST"])
+@role_required("admin")
+def administrator_unlock():
+    nxt = request.values.get("next") or url_for("administrator_users")
+    if request.method == "POST":
+        pwd = request.form.get("password") or ""
+        u = db_execute("SELECT password_hash FROM users WHERE id=%s", (session["user_id"],), fetch=True)
+        if u and check_password_hash(u[0]["password_hash"], pwd):
+            session["admin_unlocked"] = True
+            log_action("admin_unlock", "admin", session["user_id"])
+            return redirect(nxt)
+        flash("Λάθος κωδικός.", "danger")
+    return render_template("administrator_unlock.html", next=nxt)
+
+
+@app.route("/administrator")
+@role_required("admin")
+def administrator():
+    if not _admin_unlocked():
+        return redirect(url_for("administrator_unlock"))
+    return redirect(url_for("administrator_users"))
+
+
+@app.route("/administrator/users")
+@role_required("admin")
+def administrator_users():
+    if not _admin_unlocked():
+        return redirect(url_for("administrator_unlock", next=url_for("administrator_users")))
+    users = db_execute("SELECT * FROM users ORDER BY username", fetch=True) or []
+    return render_template("administrator_users.html", users=users, hnames=hospital_names())
+
+
+@app.route("/administrator/users/<int:user_id>/password", methods=["POST"])
+@role_required("admin")
+def administrator_set_password(user_id):
+    if not _admin_unlocked():
+        return redirect(url_for("administrator_unlock"))
+    new = request.form.get("new_password") or ""
+    if len(new) < 6:
+        flash("Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.", "warning")
+    else:
+        db_execute("UPDATE users SET password_hash=%s WHERE id=%s", (generate_password_hash(new), user_id))
+        log_action("set_password", "user", user_id, f"reset by admin")
+        flash("Ο κωδικός ενημερώθηκε.", "success")
+    return redirect(url_for("administrator_users"))
 
 
 # ---------------------------------------------------------------------------

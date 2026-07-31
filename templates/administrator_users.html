@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Administrator — Users{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-shield-lock"></i> Administrator — Χρήστες</h2>
+        <div class="text-muted" style="font-size:0.85rem">Χρήστες, δικαιώματα και ορισμός νέου κωδικού.</div>
+    </div>
+    <a href="{{ url_for('user_new') }}" class="btn btn-success btn-action"><i class="bi bi-person-plus"></i> Νέος Χρήστης</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.87rem">
+                <thead><tr>
+                    <th>Username</th><th>Ονοματεπώνυμο</th><th>Δικαιώματα (ρόλος)</th>
+                    <th>Νοσηλευτήριο</th><th>Ενεργός</th><th>Κωδικός</th>
+                </tr></thead>
+                <tbody>
+                {% for u in users %}
+                <tr {% if not u.active %}class="text-muted"{% endif %}>
+                    <td class="fw-bold">{{ u.username }}</td>
+                    <td>{{ u.full_name }}</td>
+                    <td>
+                        <span class="badge bg-light text-dark border">{{ ROLES.get(u.role, u.role) }}</span>
+                        <div class="text-muted" style="font-size:0.76rem">{{ ROLE_PERMISSIONS.get(u.role, '') }}</div>
+                    </td>
+                    <td>{{ hnames.get(u.hospital_code, u.hospital_code or '—') }}</td>
+                    <td>{% if u.active %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
+                    <td>
+                        <form method="post" action="{{ url_for('administrator_set_password', user_id=u.id) }}" class="d-flex gap-1 align-items-center">
+                            <span class="text-muted" title="Ο κωδικός φυλάσσεται κρυπτογραφημένος και δεν εμφανίζεται">••••••</span>
+                            <input type="password" name="new_password" class="form-control form-control-sm" style="width:130px"
+                                   placeholder="νέος κωδικός" minlength="6" autocomplete="new-password">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Ορισμός νέου κωδικού"><i class="bi bi-key"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-3">Δεν υπάρχουν χρήστες.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<div class="text-muted mt-2" style="font-size:0.78rem">
+    <i class="bi bi-info-circle"></i> Οι κωδικοί αποθηκεύονται μονόδρομα (hashed) και δεν εμφανίζονται. Γράψε νέο κωδικό και πάτα το κλειδί για αλλαγή.
+</div>
+{% endblock %}
