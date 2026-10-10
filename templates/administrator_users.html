@@ -15,7 +15,7 @@
             <table class="table table-hover align-middle mb-0" style="font-size:0.87rem">
                 <thead><tr>
                     <th>Username</th><th>Ονοματεπώνυμο</th><th>Δικαιώματα (ρόλος)</th>
-                    <th>Νοσηλευτήριο</th><th>Ενεργός</th><th>Κωδικός</th>
+                    <th>Νοσηλευτήριο</th><th>Ενεργός</th><th>Κωδικός</th><th>Επεξεργασία</th><th>Διαγραφή</th>
                 </tr></thead>
                 <tbody>
                 {% for u in users %}
@@ -23,8 +23,19 @@
                     <td class="fw-bold">{{ u.username }}</td>
                     <td>{{ u.full_name }}</td>
                     <td>
+                        {% if u.id == session.user_id %}
                         <span class="badge bg-light text-dark border">{{ ROLES.get(u.role, u.role) }}</span>
-                        <div class="text-muted" style="font-size:0.76rem">{{ ROLE_PERMISSIONS.get(u.role, '') }}</div>
+                        <div class="text-muted" style="font-size:0.72rem">(ο δικός σας λογαριασμός)</div>
+                        {% else %}
+                        <form method="post" action="{{ url_for('administrator_set_role', user_id=u.id) }}" class="d-flex gap-1 align-items-center">
+                            <select name="role" class="form-select form-select-sm role-select" style="min-width:200px" data-current="{{ u.role }}" data-username="{{ u.username }}">
+                                {% for rk, rlabel in ROLES.items() %}
+                                <option value="{{ rk }}" data-desc="{{ ROLE_PERMISSIONS.get(rk, '') }}" {% if rk == u.role %}selected{% endif %}>{{ rlabel }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        <div class="text-muted role-desc" style="font-size:0.72rem">{{ ROLE_PERMISSIONS.get(u.role, '') }}</div>
+                        {% endif %}
                     </td>
                     <td>{{ hnames.get(u.hospital_code, u.hospital_code or '—') }}</td>
                     <td>{% if u.active %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
@@ -36,9 +47,22 @@
                             <button type="submit" class="btn btn-sm btn-outline-secondary" title="Ορισμός νέου κωδικού"><i class="bi bi-key"></i></button>
                         </form>
                     </td>
+                    <td>
+                        <a href="{{ url_for('user_edit', user_id=u.id) }}" class="btn btn-sm btn-outline-primary" title="Επεξεργασία ονοματεπώνυμου & δικαιωμάτων"><i class="bi bi-pencil-square"></i> Επεξεργασία</a>
+                    </td>
+                    <td>
+                        {% if u.id != session.user_id %}
+                        <form method="post" action="{{ url_for('administrator_delete_user', user_id=u.id) }}"
+                              onsubmit="return confirm('Οριστική διαγραφή του χρήστη «{{ u.username }}»; Η ενέργεια δεν αναιρείται.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Διαγραφή χρήστη"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted" title="Δεν μπορείτε να διαγράψετε τον εαυτό σας">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6" class="text-center text-muted py-3">Δεν υπάρχουν χρήστες.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-3">Δεν υπάρχουν χρήστες.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
@@ -48,4 +72,28 @@
 <div class="text-muted mt-2" style="font-size:0.78rem">
     <i class="bi bi-info-circle"></i> Οι κωδικοί αποθηκεύονται μονόδρομα (hashed) και δεν εμφανίζονται. Γράψε νέο κωδικό και πάτα το κλειδί για αλλαγή.
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.role-select').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+        var cur = sel.getAttribute('data-current') || '';
+        if (sel.value === cur) return;
+        var opt = sel.options[sel.selectedIndex];
+        var label = opt ? (opt.textContent || '').trim() : sel.value;
+        var uname = sel.getAttribute('data-username') || '';
+        if (confirm('Αλλαγή ρόλου του χρήστη «' + uname + '» σε «' + label + '»;')) {
+            sel.form.submit();
+            return;
+        }
+        // ακύρωση -> επαναφορά προηγούμενου ρόλου
+        sel.value = cur;
+        var td = sel.closest('td');
+        var d = td ? td.querySelector('.role-desc') : null;
+        var o2 = sel.options[sel.selectedIndex];
+        if (d && o2) { d.textContent = o2.getAttribute('data-desc') || ''; }
+    });
+});
+</script>
 {% endblock %}

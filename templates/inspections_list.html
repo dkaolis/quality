@@ -1,66 +1,91 @@
 {% extends "base.html" %}
-{% block title %}Επιθεωρήσεις{% endblock %}
+{% block title %}Κατάλογος Επιθεωρήσεων{% endblock %}
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center">
-    <h2><i class="bi bi-search"></i> Επιθεωρήσεις</h2>
-    <a href="{{ url_for('inspection_new') }}" class="btn btn-success btn-action">
-        <i class="bi bi-plus-lg"></i> Νέα Επιθεώρηση
-    </a>
+<div class="page-header">
+    <h2><i class="bi bi-card-checklist"></i> Κατάλογος Επιθεωρήσεων</h2>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form method="get" class="row g-2 align-items-center">
-            <div class="col-md-4">
-                <select name="hospital" class="form-select form-select-sm select2">
-                    <option value="">Όλα τα νοσηλευτήρια</option>
-                    {% for h in hospitals %}
-                    <option value="{{ h.code }}" {% if h.code == sel_hospital %}selected{% endif %}>{{ h.name_el }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select name="status" class="form-select form-select-sm">
-                    <option value="">Όλες</option>
-                    <option value="open" {% if sel_status == 'open' %}selected{% endif %}>Ανοικτές</option>
-                    <option value="closed" {% if sel_status == 'closed' %}selected{% endif %}>Κλεισμένες</option>
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Φίλτρο</button>
-            </div>
-        </form>
+<div class="card mb-3"><div class="card-body py-2">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label mb-1" style="font-size:0.78rem">Είδος επιθεώρησης</label>
+      <select name="itype" class="form-select form-select-sm">
+        <option value="">Όλες</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if cat == sel_type %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
     </div>
-</div>
+    <div class="col-md-3">
+      <label class="form-label mb-1" style="font-size:0.78rem">Περίοδος</label>
+      <select id="periodSel" class="form-select form-select-sm">
+        <option value="all" {% if not (date_from or date_to) %}selected{% endif %}>Όλες</option>
+        <option value="range" {% if date_from or date_to %}selected{% endif %}>Συγκεκριμένο διάστημα</option>
+      </select>
+    </div>
+    <div class="col-md-2 period-range" {% if not (date_from or date_to) %}style="display:none"{% endif %}>
+      <label class="form-label mb-1" style="font-size:0.78rem">Από</label>
+      <input type="date" name="from" value="{{ date_from }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-md-2 period-range" {% if not (date_from or date_to) %}style="display:none"{% endif %}>
+      <label class="form-label mb-1" style="font-size:0.78rem">Μέχρι</label>
+      <input type="date" name="to" value="{{ date_to }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Εφαρμογή</button>
+    </div>
+  </form>
+</div></div>
 
-<div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0" style="font-size:0.86rem">
-                <thead><tr>
-                    <th>Ημερομηνία</th><th>Νοσηλευτήριο</th><th>Τύπος</th><th>Φορέας</th>
-                    <th>Αντικείμενο</th><th class="text-center">Σοβαρά</th><th class="text-center">Δευτερεύοντα</th>
-                    <th class="text-end">Βαθμός</th><th>Κατάσταση</th>
-                </tr></thead>
-                <tbody>
-                {% for ins in inspections %}
-                <tr style="cursor:pointer" onclick="window.location='{{ url_for('inspection_view', ins_id=ins.id) }}'">
-                    <td>{{ ins.inspection_date|fmtdate }}</td>
-                    <td>{{ hnames.get(ins.hospital_code, ins.hospital_code) }}</td>
-                    <td>{{ ins.itype }}</td>
-                    <td>{{ ins.body or '—' }}</td>
-                    <td style="font-size:0.8rem">{{ (ins.scope or '')[:60] }}</td>
-                    <td class="text-center {% if ins.findings_major %}fw-bold text-danger{% endif %}">{{ ins.findings_major }}</td>
-                    <td class="text-center">{{ ins.findings_minor }}</td>
-                    <td class="text-end">{{ ins.score|fmtnum if ins.score is not none else '—' }}</td>
-                    <td><span class="badge bg-{{ INSPECTION_STATUS[ins.status][1] }} badge-status">{{ INSPECTION_STATUS[ins.status][0] }}</span></td>
-                </tr>
-                {% else %}
-                <tr><td colspan="9" class="text-center text-muted py-3">Δεν υπάρχουν επιθεωρήσεις.</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table table-hover mb-0 align-middle" style="font-size:0.86rem">
+    <thead><tr>
+      <th>Ημερομηνία</th><th>Τμήμα</th><th>Είδος</th><th>Επιθεωρητές</th>
+      <th class="text-center">Ανοικτές αποκλίσεις</th><th>Κατάσταση</th>
+    </tr></thead>
+    <tbody>
+    {% for a in audits %}
+    <tr style="cursor:pointer" onclick="window.location='{{ url_for('checklist_fill', inst_id=a.id) }}'">
+      <td class="fw-semibold">{{ a.date_str }}</td>
+      <td>{{ a.department }}</td>
+      <td style="font-size:0.82rem">{{ a.itype }}</td>
+      <td style="font-size:0.82rem">{{ a.inspectors }}</td>
+      <td class="text-center {% if a.open_count %}fw-bold text-danger{% endif %}">{{ a.open_count }}</td>
+      <td><span class="badge bg-{{ a.kat_color }} badge-status">{{ a.kat_label }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center text-muted py-3">Δεν υπάρχουν επιθεωρήσεις με αυτά τα κριτήρια.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+
+<div class="card mt-3" style="max-width:540px"><div class="card-body">
+  <div class="row text-center g-2">
+    <div class="col">
+      <div class="text-muted" style="font-size:0.8rem">Σύνολο επιλεχθεισών</div>
+      <div class="fw-bold text-primary" style="font-size:1.5rem">{{ n_total }}</div>
     </div>
-</div>
+    <div class="col">
+      <div class="text-muted" style="font-size:0.8rem">Ανοικτές</div>
+      <div class="fw-bold text-warning" style="font-size:1.5rem">{{ n_open }}</div>
+    </div>
+    <div class="col">
+      <div class="text-muted" style="font-size:0.8rem">Κλειστές</div>
+      <div class="fw-bold text-success" style="font-size:1.5rem">{{ n_closed }}</div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+(function(){
+  var sel=document.getElementById('periodSel');
+  if(!sel) return;
+  function upd(){
+    document.querySelectorAll('.period-range').forEach(function(e){ e.style.display = (sel.value==='range')?'':'none'; });
+    if(sel.value==='all'){ var f=document.querySelector('[name=from]'), t=document.querySelector('[name=to]'); if(f)f.value=''; if(t)t.value=''; }
+  }
+  sel.addEventListener('change', upd);
+})();
+</script>
 {% endblock %}

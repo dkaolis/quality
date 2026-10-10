@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Επιβεβαίωση Προγραμματισμού{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2 class="mb-0"><i class="bi bi-exclamation-triangle text-warning"></i> Σύγκρουση Επιθεωρητή</h2>
+</div>
+<div class="card" style="max-width:640px"><div class="card-body">
+  <div class="alert alert-warning mb-3">
+    Ο/Η επιθεωρητής/-ήτρια <strong>{{ insp }}</strong> έχει ήδη επιθεώρηση εκείνη την ημέρα
+    ({{ other.department or '—' }}{% if other.insp_date %} · {{ other.insp_date|fmtdate }}{% endif %}).
+  </div>
+  <p class="mb-3">Θέλεις να προχωρήσεις παρ' όλα αυτά στον προγραμματισμό;</p>
+  <form method="post" action="{{ action }}" class="d-inline">
+    {% for k, val in formdata.items() %}
+    <input type="hidden" name="{{ k }}" value="{{ val }}">
+    {% endfor %}
+    <input type="hidden" name="confirm_conflict" value="1">
+    <button type="submit" class="btn btn-warning"><i class="bi bi-check-lg"></i> Ναι, προχώρησε</button>
+  </form>
+  <a href="{{ cancel }}" class="btn btn-outline-secondary">Άκυρο</a>
+</div></div>
+{% endblock %}

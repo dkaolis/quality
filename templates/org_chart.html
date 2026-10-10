@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Οργανόγραμμα{% endblock %}
+{% block extra_head %}
+<style>
+.orgnode{ width:290px; background:#fff; border:2px solid #0d9488; border-radius:12px; padding:18px; box-shadow:0 2px 10px rgba(0,0,0,0.08); }
+.orgphoto{ text-align:center; }
+.orgphoto-inner{ position:relative; display:inline-block; }
+.orgphoto img{ width:140px; height:140px; object-fit:cover; border-radius:50%; border:3px solid #e2e8f0; display:block; }
+.orgph-placeholder{ width:140px; height:140px; border-radius:50%; border:3px dashed #cbd5e1; display:inline-flex; align-items:center; justify-content:center; color:#94a3b8; font-size:3rem; }
+.orgclickable{ cursor:pointer; }
+.orgclickable:hover img, .orgclickable:hover .orgph-placeholder{ border-color:#0d9488; }
+.orgedit-badge{ position:absolute; right:6px; bottom:6px; background:#0d9488; color:#fff; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.85rem; box-shadow:0 1px 4px rgba(0,0,0,0.35); }
+.orglevel-title{ background:#0d9488; color:#fff; padding:6px 20px; border-radius:20px; font-weight:600; margin-bottom:14px; text-align:center; }
+#orgLines{ position:absolute; top:0; left:0; pointer-events:none; z-index:0; }
+.modal .orgphoto img, .modal .orgph-placeholder{ width:150px; height:150px; }
+</style>
+{% endblock %}
+
+{% macro node_card(n, show_role, can_edit) %}
+<div class="orgnode">
+  <div class="orgphoto mb-3">
+    <div class="orgphoto-inner {% if can_edit %}orgclickable{% endif %}"
+         {% if can_edit %}role="button" tabindex="0" title="Κλικ για επεξεργασία"
+           data-action="{{ url_for('org_node_update', node_id=n.id) }}"
+           data-name="{{ n.person_name or '' }}" data-title="{{ n.person_title or '' }}"
+           data-has-photo="{{ 1 if n.photo else 0 }}" data-photo-url="{{ url_for('org_node_photo', node_id=n.id) }}"{% endif %}>
+      {% if n.photo %}<img src="{{ url_for('org_node_photo', node_id=n.id) }}" alt="">
+      {% else %}<div class="orgph-placeholder"><i class="bi bi-person"></i></div>{% endif %}
+      {% if can_edit %}<span class="orgedit-badge"><i class="bi bi-pencil"></i></span>{% endif %}
+    </div>
+  </div>
+  <div class="text-center fw-semibold">{{ n.person_name or '—' }}</div>
+  <div class="text-center text-muted" style="font-size:0.88rem">{{ n.person_title or '' }}</div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-diagram-3"></i> Οργανόγραμμα</h2>
+  <div class="text-muted">Μονάδα Διασφάλισης Ποιότητας</div>
+</div>
+
+<div id="orgWrap" style="position:relative">
+  <svg id="orgLines"></svg>
+  <div class="d-flex flex-column align-items-center py-3" style="position:relative; z-index:1">
+
+    <div class="orglevel-title">Υπεύθυνος Μονάδας Διασφάλισης Ποιότητας</div>
+    <div class="orgpos" data-node="head">{{ node_card(head, false, can_edit) }}</div>
+
+    <div class="orglevel-title" style="margin-top:52px">Λειτουργοί Μονάδας Διασφάλισης Ποιότητας</div>
+    <div class="d-flex flex-wrap justify-content-center gap-3">
+      {% for o in officers %}<div class="orgpos" data-node="officer">{{ node_card(o, false, can_edit) }}</div>{% endfor %}
+    </div>
+
+    <div class="orglevel-title" style="margin-top:52px">Γραμματειακό Προσωπικό</div>
+    <div class="d-flex flex-wrap justify-content-center gap-3">
+      {% for s in secretariat %}<div class="orgpos" data-node="sec">{{ node_card(s, false, can_edit) }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+{% if can_edit %}
+<div class="modal fade" id="orgEditModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" enctype="multipart/form-data" id="orgEditForm">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Επεξεργασία στοιχείων</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="orgphoto mb-2">
+          <img id="oemImg" src="" alt="" style="display:none">
+          <div id="oemPh" class="orgph-placeholder"><i class="bi bi-person"></i></div>
+        </div>
+        <div class="mb-3">
+          <label class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i> Νέα φωτογραφία
+            <input type="file" name="photo" accept="image/*" hidden id="oemFile">
+          </label>
+        </div>
+        <input name="person_name" id="oemName" class="form-control mb-2 text-center" placeholder="Ονοματεπώνυμο (π.χ. Μικαέλα Συμεού Κωσταντίου)">
+        <input name="person_title" id="oemTitle" class="form-control text-center" placeholder="Τίτλος (π.χ. Νοσηλεύτρια)">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle"></i> Αποθήκευση</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+{% if can_edit %}
+(function(){
+  var modalEl=document.getElementById('orgEditModal');
+  var form=document.getElementById('orgEditForm');
+  var img=document.getElementById('oemImg'), ph=document.getElementById('oemPh');
+  document.querySelectorAll('.orgclickable').forEach(function(el){
+    el.addEventListener('click', function(){
+      form.action=this.getAttribute('data-action');
+      document.getElementById('oemName').value=this.getAttribute('data-name')||'';
+      document.getElementById('oemTitle').value=this.getAttribute('data-title')||'';
+      if(this.getAttribute('data-has-photo')==='1'){
+        img.src=this.getAttribute('data-photo-url'); img.style.display=''; ph.style.display='none';
+      } else { img.src=''; img.style.display='none'; ph.style.display=''; }
+      var f=document.getElementById('oemFile'); if(f) f.value='';
+      new bootstrap.Modal(modalEl).show();
+    });
+  });
+  var oemFile=document.getElementById('oemFile');
+  if(oemFile){ oemFile.addEventListener('change', function(e){
+    if(!e.target.files.length) return;
+    var url=URL.createObjectURL(e.target.files[0]);
+    img.src=url; img.style.display=''; ph.style.display='none';
+  });}
+})();
+{% endif %}
+
+function drawOrgLines(){
+  var wrap=document.getElementById('orgWrap');
+  var svg=document.getElementById('orgLines');
+  if(!wrap||!svg) return;
+  var W=wrap.clientWidth, H=wrap.clientHeight;
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  var wr=wrap.getBoundingClientRect();
+  function pt(el){ var r=el.getBoundingClientRect(); return { cx:r.left-wr.left+r.width/2, top:r.top-wr.top, bottom:r.bottom-wr.top }; }
+  function line(x1,y1,x2,y2){
+    var l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+    l.setAttribute('stroke','#14b8a6'); l.setAttribute('stroke-width','2'); svg.appendChild(l);
+  }
+  var head=document.querySelector('[data-node="head"] .orgnode');
+  var sec=document.querySelector('[data-node="sec"] .orgnode');
+  var officers=Array.prototype.slice.call(document.querySelectorAll('[data-node="officer"] .orgnode'));
+  if(head){ var h=pt(head);
+    officers.forEach(function(o){ var c=pt(o); line(h.cx,h.bottom,c.cx,c.top); });
+    if(sec){ var s=pt(sec); line(h.cx,h.bottom,s.cx,s.top); } }
+  if(sec){ var s2=pt(sec);
+    officers.forEach(function(o){ var c=pt(o); line(c.cx,c.bottom,s2.cx,s2.top); }); }
+}
+window.addEventListener('load', drawOrgLines);
+window.addEventListener('resize', drawOrgLines);
+setTimeout(drawOrgLines, 300);
+</script>
+{% endblock %}

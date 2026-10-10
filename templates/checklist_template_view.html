@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Προβολή — {{ tpl.title }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+  <div><h2><i class="bi bi-eye"></i> {{ tpl.title }}</h2>
+    <div class="text-muted" style="font-size:0.85rem"><span class="badge bg-primary">{{ tpl.code }}</span> Προβολή προτύπου (κενή λίστα ελέγχου)</div>
+  </div>
+  <a href="{{ url_for('checklists_list') }}" class="btn btn-sm btn-outline-secondary">&larr; Πίσω</a>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  {% for sec in structure.sections %}
+  <li class="nav-item"><button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#vtab-{{ loop.index0 }}" type="button">{{ sec.name }}</button></li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+  {% for sec in structure.sections %}
+  <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="vtab-{{ loop.index0 }}">
+    <div class="card"><div class="card-body">
+      {% if sec.type == 'checklist' %}
+      {% if sec.area %}<div class="mb-2"><span class="badge bg-info">{{ sec.area }}</span></div>{% endif %}
+      <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem">
+        <thead class="table-light"><tr><th style="width:34px">Α/Α</th><th style="width:22%">Διαδικασία / ROP</th><th>Κριτήριο Ελέγχου</th></tr></thead>
+        <tbody>
+        {% for c in sec.criteria %}
+        <tr><td class="text-center">{{ c.no if c.no is not none else '' }}</td><td>{{ c.proc }}</td><td>{{ c.criterion }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if sec.procedures %}
+      <div class="mt-3">
+        <h6 class="text-muted">Διαδικασίες / ROP της ενότητας</h6>
+        <ul class="mb-0" style="font-size:0.85rem">
+          {% for p in sec.procedures %}<li>{{ p }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% elif sec.type == 'iso' %}
+      <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem">
+        <thead class="table-light"><tr><th style="width:34px">Α/Α</th><th>{{ sec.col_label or 'Σύστημα Διαχείρισης Ποιότητας' }}</th></tr></thead>
+        <tbody>
+        {% for cl in sec.clauses %}
+        <tr><td class="text-center">{{ cl.no if cl.no is not none else loop.index }}</td><td>{{ cl.clause }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% elif sec.practices %}
+      <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle mb-0" style="font-size:0.82rem">
+        <thead class="table-light"><tr><th style="width:34px">Α/Α</th><th>Απαιτούμενη Πρακτική Ασφάλειας</th></tr></thead>
+        <tbody>
+        {% for p in sec.practices %}
+        <tr><td class="text-center">{{ p.no if p.no is not none else '' }}</td><td>{{ p.practice }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <div class="text-muted" style="font-size:0.9rem"><i class="bi bi-file-earmark-text"></i> Καρτέλα αναφοράς — συμπληρώνεται κατά τη διενέργεια της επιθεώρησης.</div>
+      {% endif %}
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,637 @@
+{% extends "base.html" %}
+{% block title %}{{ inst.title }}{% endblock %}
+{% block content %}
+<div class="fw-bold" style="font-size:1.15rem; margin-bottom:6px">Qmentum International</div>
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h2><i class="bi bi-ui-checks"></i> {{ inst.title }}</h2>
+    <div class="text-muted" style="font-size:0.82rem">
+      {% if inst.status=='final' %}<span class="badge bg-success">Οριστική</span>{% else %}<span class="badge bg-secondary">Πρόχειρο</span>{% endif %}
+      · Προσωρινή = συνεχίζεις αργότερα · Μόνιμη = οριστικοποίηση.</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% if is_iso %}{{ url_for('checklist_iso_report', inst_id=inst.id) }}{% else %}{{ url_for('checklist_report2', inst_id=inst.id) }}{% endif %}" target="_blank" class="btn btn-outline-secondary btn-sm" id="rep2btn"><i class="bi bi-file-earmark-pdf"></i> Αναφορά PDF</a>
+    {% if permalocked %}
+    <span class="badge bg-dark align-self-center py-2"><i class="bi bi-lock-fill"></i> Υπογεγραμμένο — κλειδωμένο</span>
+    {% else %}
+    {% if editable %}
+    <button type="submit" form="clForm" name="_save" value="draft" class="btn btn-outline-success btn-sm"><i class="bi bi-save"></i> Προσωρινή αποθήκευση</button>
+    {% endif %}
+    {% if can_finalize %}
+    <button type="submit" form="clForm" name="_save" value="final" class="btn btn-success btn-sm" onclick="return confirm('Οριστικό κλείδωμα της λίστας; Δεν θα επιτρέπεται καμία τροποποίηση.');"><i class="bi bi-check2-circle"></i> Μόνιμη αποθήκευση</button>
+    {% else %}
+    <button type="button" class="btn btn-success btn-sm" disabled title="Απαιτούνται και οι {{ signers|length }} υπογραφές"><i class="bi bi-check2-circle"></i> Μόνιμη αποθήκευση</button>
+    {% endif %}
+    {% endif %}
+    {% if is_admin %}
+    <form method="post" action="{{ url_for('checklist_delete', inst_id=inst.id) }}" class="ms-auto" onsubmit="return confirm('Οριστική διαγραφή αυτής της λίστας ελέγχου/επιθεώρησης και όλων των δεδομένων της (υπογραφές, αποκαταστάσεις αποκλίσεων); Δεν αναιρείται.');">
+      <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Διαγραφή</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-3 border-primary">
+  <div class="card-body">
+    <h6 class="mb-2"><i class="bi bi-pen"></i> Ηλεκτρονικές Υπογραφές (SES)</h6>
+    {% if permalocked %}
+    <div class="alert alert-dark py-2 mb-2" style="font-size:0.85rem"><i class="bi bi-lock-fill"></i> Η λίστα είναι οριστικά κλειδωμένη.</div>
+    {% elif can_finalize %}
+    <div class="alert alert-success py-2 mb-2" style="font-size:0.85rem"><i class="bi bi-check2-circle"></i> Ολοκληρώθηκαν όλες οι υπογραφές. Πατήστε «Μόνιμη αποθήκευση» για οριστικό κλείδωμα.</div>
+    {% else %}
+    <div class="alert alert-info py-2 mb-2" style="font-size:0.85rem"><i class="bi bi-info-circle"></i> Συμπληρώστε και υπογράψτε τη λίστα. Η «Μόνιμη αποθήκευση» ενεργοποιείται όταν υπογράψουν και οι {{ signers|length }}.</div>
+    {% endif %}
+    <table class="table table-sm align-middle mb-0" style="font-size:0.85rem">
+      <tbody>
+      {% for sg in signers %}
+      {% set s = signed_map.get(sg.name) %}
+      <tr>
+        <td style="width:35%"><strong>{{ sg.name }}</strong><br><span class="text-muted" style="font-size:0.75rem">{{ sg.role }}</span></td>
+        <td>
+          {% if s %}
+          <span class="badge bg-success"><i class="bi bi-check2-circle"></i> Υπογεγραμμένο</span>
+          <span class="text-muted ms-2" style="font-size:0.78rem">{{ s.signed_at }} · χρήστης: {{ s.signer_user }} · κωδ. επαλήθευσης: <code>{{ s.content_hash[:12] }}</code></span>
+          {% else %}
+          <span class="badge bg-secondary">Εκκρεμεί</span>
+          {% endif %}
+        </td>
+        <td class="text-end" style="width:170px">
+          {% if s %}
+            {% if not permalocked or is_admin %}
+            <form method="post" action="{{ url_for('checklist_sign_revoke', inst_id=inst.id, sig_id=s.id) }}" style="display:inline" onsubmit="return confirm('Ακύρωση υπογραφής;');">
+              <button class="btn btn-outline-danger btn-sm"><i class="bi bi-x-circle"></i> Ακύρωση</button>
+            </form>
+            {% endif %}
+          {% elif not permalocked %}
+            <button type="button" class="btn btn-primary btn-sm cl-sign-btn" data-signer="{{ sg.name }}"><i class="bi bi-pen"></i> Υπογράφω</button>
+          {% else %}
+            <button class="btn btn-primary btn-sm" disabled><i class="bi bi-pen"></i> Υπογράφω</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="clSignModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pen"></i> Ηλεκτρονική Υπογραφή</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">Υπογράφων: <strong id="clSignName"></strong></div>
+        <label class="form-label" style="font-size:0.85rem">Εισάγετε τον κωδικό σας για επιβεβαίωση:</label>
+        <input type="password" id="clSignPw" class="form-control" autocomplete="current-password">
+        <div id="clSignErr" class="text-danger mt-2" style="font-size:0.85rem; display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="button" class="btn btn-primary" id="clSignSubmit"><i class="bi bi-pen"></i> Υπογραφή</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="clMsgModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning-subtle">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-warning"></i> Προσοχή</h5>
+      </div>
+      <div class="modal-body" id="clMsgBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var signUrl = "{{ url_for('checklist_sign', inst_id=inst.id) }}";
+  var pwModal=null, msgModal=null, curSigner=null;
+  function showMsg(text){
+    document.getElementById('clMsgBody').textContent=text;
+    if(!msgModal) msgModal=new bootstrap.Modal(document.getElementById('clMsgModal'));
+    msgModal.show();
+  }
+  [].slice.call(document.querySelectorAll('.cl-sign-btn')).forEach(function(b){
+    b.addEventListener('click', function(){
+      curSigner=b.getAttribute('data-signer');
+      document.getElementById('clSignName').textContent=curSigner;
+      var pw=document.getElementById('clSignPw'); pw.value='';
+      document.getElementById('clSignErr').style.display='none';
+      if(!pwModal) pwModal=new bootstrap.Modal(document.getElementById('clSignModal'));
+      pwModal.show();
+      setTimeout(function(){ try{ pw.focus(); }catch(e){} }, 300);
+    });
+  });
+  function submitSign(){
+    var pw=document.getElementById('clSignPw').value;
+    var btn=document.getElementById('clSignSubmit');
+    var errEl=document.getElementById('clSignErr'); errEl.style.display='none';
+    if(!pw){ errEl.textContent='Εισάγετε τον κωδικό σας.'; errEl.style.display='block'; return; }
+    var old=btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="bi bi-hourglass-split"></i> …';
+    fetch(signUrl, {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({signer_name:curSigner, password:pw})})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        btn.disabled=false; btn.innerHTML=old;
+        if(j && j.ok){ if(pwModal) pwModal.hide(); window.location.reload(); }
+        else { if(pwModal) pwModal.hide(); setTimeout(function(){ showMsg((j && j.message) ? j.message : 'Σφάλμα υπογραφής.'); }, 250); }
+      })
+      .catch(function(){ btn.disabled=false; btn.innerHTML=old; if(pwModal) pwModal.hide(); setTimeout(function(){ showMsg('Σφάλμα επικοινωνίας.'); }, 250); });
+  }
+  var submitBtn=document.getElementById('clSignSubmit');
+  if(submitBtn) submitBtn.addEventListener('click', submitSign);
+  var pwInput=document.getElementById('clSignPw');
+  if(pwInput) pwInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); submitSign(); } });
+})();
+</script>
+
+<form id="clForm" method="post" action="{{ url_for('checklist_save', inst_id=inst.id) }}">
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-meta" type="button">Στοιχεία</button></li>
+  {% for sec in structure.sections %}
+  {% if sec.type != 'report' %}
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index0 }}" type="button" {% if sec.type == 'report2' %}data-report="1"{% endif %}{% if sec.type == 'iso_report' %}data-isoreport="1"{% endif %}>{% if sec.type == 'report2' %}Αναφορά{% else %}{{ sec.name }}{% endif %}</button></li>
+  {% endif %}
+  {% endfor %}
+</ul>
+
+<fieldset {% if not editable %}disabled{% endif %} style="border:0;padding:0;margin:0;min-width:0">
+<div class="tab-content">
+  <!-- Στοιχεία -->
+  <div class="tab-pane fade show active" id="tab-meta">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">1. ΣΤΟΙΧΕΙΑ ΕΠΙΘΕΩΡΗΣΗΣ</h6>
+      <div class="row g-3">
+        <div class="col-md-6"><label class="form-label mb-1">Δ/νση – Νοσοκομείο</label>
+          <input name="meta_hospital" class="form-control form-control-sm" value="{{ data.get('meta_hospital','Γενικό Νοσοκομείο Λευκωσίας') }}"></div>
+        <div class="col-md-3"><label class="form-label mb-1">Ημερομηνία</label>
+          <input type="date" name="meta_date" class="form-control form-control-sm" value="{{ data.get('meta_date','') }}"></div>
+        <div class="col-md-3"><label class="form-label mb-1">Είδος Επιθεώρησης</label>
+          <input name="meta_itype" class="form-control form-control-sm" value="{{ data.get('meta_itype','') }}"></div>
+        <div class="col-md-6"><label class="form-label mb-1">Επιθεωρούμενο Τμήμα</label>
+          <input name="meta_department" class="form-control form-control-sm" value="{{ data.get('meta_department','') }}"></div>
+        <div class="col-md-6"><label class="form-label mb-1">Επιθεωρητές</label>
+          <input name="meta_inspectors" class="form-control form-control-sm" value="{{ data.get('meta_inspectors','') }}"></div>
+      </div>
+
+      <h6 class="text-muted mt-4">Συμμετέχοντες εκ μέρους της Κλινικής / Τμήματος</h6>
+      <div class="row g-2">
+        {% for i in range(1, 6) %}
+        <div class="col-md-6"><label class="form-label mb-1" style="font-size:0.82rem">Ονοματεπώνυμο {{ i }}</label>
+          <input name="meta_participant{{ i }}_name" class="form-control form-control-sm" value="{{ data.get('meta_participant' ~ i ~ '_name', '') }}"></div>
+        <div class="col-md-6"><label class="form-label mb-1" style="font-size:0.82rem">Ρόλος {{ i }}</label>
+          <input name="meta_participant{{ i }}_role" class="form-control form-control-sm" value="{{ data.get('meta_participant' ~ i ~ '_role', '') }}"></div>
+        {% endfor %}
+      </div>
+    </div></div>
+  </div>
+
+  {% for sec in structure.sections %}
+  {% set si = loop.index0 %}
+  <div class="tab-pane fade" id="tab-{{ si }}">
+    {% if sec.type == 'checklist' %}
+    <div class="card"><div class="card-body">
+      <div class="mb-2"><span class="badge bg-info">{{ sec.area }}</span></div>
+      <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle" style="font-size:0.82rem">
+        <thead class="table-light"><tr>
+          <th style="width:34px">Α/Α</th><th style="width:15%">Διαδικασία / ROP</th><th>Κριτήριο Ελέγχου</th>
+          <th style="width:70px">Δείγμα</th><th style="width:80px">Συμμορφ.</th><th style="width:60px">Αποκλ.</th>
+          <th style="width:60px">%</th><th style="width:12%">Τεκμήριο</th><th style="width:12%">Σημειώσεις</th><th style="width:12%">Διορθωτικές Ενέργειες</th><th style="width:120px">Χρονοδιάγραμμα</th><th style="width:12%">Υπεύθυνος Υλοποίησης</th>
+        </tr></thead>
+        <tbody>
+        {% for c in sec.criteria %}
+        {% set ci = loop.index0 %}{% set k = 's'~si~'c'~ci %}
+        <tr>
+          <td class="text-center">{{ c.no if c.no is not none else '' }}</td>
+          <td>{{ c.proc }}</td>
+          <td>{{ c.criterion }}</td>
+          <td><input name="{{ k }}_sample" data-key="{{ k }}" data-proc="{{ si }}p{{ c.pidx }}" class="form-control form-control-sm calc text-end" value="{{ data.get(k~'_sample','') }}"></td>
+          <td><input name="{{ k }}_comp" data-key="{{ k }}" data-proc="{{ si }}p{{ c.pidx }}" class="form-control form-control-sm calc text-end" value="{{ data.get(k~'_comp','') }}"></td>
+          <td class="text-center"><span id="dev-{{ k }}" class="text-muted">—</span></td>
+          <td class="text-center"><span id="pct-{{ k }}" class="fw-semibold">—</span></td>
+          <td><textarea name="{{ k }}_evid" class="form-control form-control-sm ag" rows="2">{{ data.get(k~'_evid','') }}</textarea></td>
+          <td><textarea name="{{ k }}_notes" class="form-control form-control-sm ag" rows="2">{{ data.get(k~'_notes','') }}</textarea></td>
+          <td><textarea name="{{ k }}_corr" class="form-control form-control-sm ag" rows="2">{{ data.get(k~'_corr','') }}</textarea></td>
+          <td><input type="date" name="{{ k }}_time" class="form-control form-control-sm" value="{{ data.get(k~'_time','') }}"></td>
+          <td><textarea name="{{ k }}_resp" class="form-control form-control-sm ag" rows="2">{{ data.get(k~'_resp','') }}</textarea></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if sec.procedures %}
+      <div class="mt-3">
+        <h6 class="text-muted">Σύνολο δείγματος ανά διαδικασία</h6>
+        <div class="d-flex flex-wrap gap-4 align-items-start">
+        <div>
+        <table class="table table-sm table-bordered" style="max-width:900px; font-size:0.82rem">
+          <thead class="table-light"><tr><th>Διαδικασία / ROP</th><th class="text-end" style="width:120px">Σύνολο δείγματος</th><th class="text-end" style="width:110px">Συμμορφώσεις</th><th class="text-end" style="width:100px">Αποκλίσεις</th><th class="text-end table-success" style="width:120px">% Συμμόρφωσης</th></tr></thead>
+          <tbody>
+          {% for p in sec.procedures %}
+          <tr><td>{{ p }}</td><td class="text-end fw-bold"><span id="psum-{{ si }}p{{ loop.index0 }}">0</span></td><td class="text-end fw-bold"><span id="pcomp-{{ si }}p{{ loop.index0 }}">0</span></td><td class="text-end fw-bold"><span id="pdev-{{ si }}p{{ loop.index0 }}">0</span></td><td class="text-end fw-bold"><span id="ppct-{{ si }}p{{ loop.index0 }}">—</span></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <div class="text-muted mt-2" style="font-size:0.78rem"><i class="bi bi-info-circle"></i> Ο δείκτης συμμόρφωσης ανά διαδικασία υπολογίστηκε με τον τύπο: Σύνολο συμμορφώσεων διαδικασίας ÷ σύνολο δείγματος διαδικασίας × 100.</div>
+        </div>
+        <div class="card border-success shadow-sm" style="min-width:300px">
+          <div class="card-body">
+            <h6 class="text-success mb-3"><i class="bi bi-clipboard2-data"></i> Συνολικά Στοιχεία — {{ sec.name }}</h6>
+            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Σύνολο αξιολογηθέντων ελέγχων</span><strong id="totSample-{{ si }}">0</strong></div>
+            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Σύνολο συμμορφώσεων</span><strong id="totComp-{{ si }}">0</strong></div>
+            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Σύνολο αποκλίσεων</span><strong id="totDev-{{ si }}">0</strong></div>
+            <div id="totBox-{{ si }}" class="text-center p-3 rounded mt-2" style="background:#d1e7dd">
+              <div style="font-size:0.82rem; letter-spacing:0.5px; color:#333">ΣΥΝΟΛΙΚΟ ΠΟΣΟΣΤΟ ΣΥΜΜΟΡΦΩΣΗΣ</div>
+              <div class="fw-bold" style="font-size:2rem; line-height:1.1; color:#222" id="totPct-{{ si }}">—</div>
+            </div>
+            <div class="text-muted mt-2" style="font-size:0.72rem">Υπολογίστηκε ως: Σύνολο συμμορφώσεων ÷ Σύνολο αξιολογηθέντων ελέγχων × 100.</div>
+          </div>
+        </div>
+        </div>
+      </div>
+      {% endif %}
+    </div></div>
+    {% elif sec.type == 'iso' %}
+    <div class="card"><div class="card-body">
+      <div class="mb-2"><span class="badge bg-info">{{ sec.area or sec.name }}</span></div>
+      <div class="table-responsive">
+      <table class="table table-bordered align-middle" style="font-size:0.83rem">
+        <thead class="table-light"><tr>
+          <th style="width:34px">Α/Α</th>
+          <th style="min-width:240px">{{ sec.col_label or 'Σύστημα Διαχείρισης Ποιότητας' }}</th>
+          <th style="width:110px">Συμμορφούμενος</th>
+          {% if not sec.no_nc %}<th style="width:140px">Κύρια/Δευτ. μη συμμόρφωση</th>{% endif %}
+          <th style="min-width:240px">Περιγραφή / Ευρήματα</th>
+          <th style="min-width:210px">Διορθωτικές Ενέργειες</th>
+          <th style="width:140px">Χρονοδιάγραμμα</th>
+          <th style="width:150px">Υπεύθυνος Υλοποίησης</th>
+        </tr></thead>
+        <tbody>
+        {% for cl in sec.clauses %}{% set ci = loop.index0 %}{% set k = 'iso' ~ si ~ '_' ~ ci %}
+          <tr>
+            <td class="text-center">{{ cl.no if cl.no is not none else loop.index }}</td>
+            <td>{{ cl.clause }}</td>
+            <td>
+              <select name="{{ k }}_comp" class="form-select form-select-sm">
+                <option value="" {% if not data.get(k~'_comp') %}selected{% endif %}>—</option>
+                {% for opt in ['ΝΑΙ','ΟΧΙ','ΔΕ'] %}<option value="{{ opt }}" {% if data.get(k~'_comp')==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+              </select>
+            </td>
+            {% if not sec.no_nc %}<td>
+              <select name="{{ k }}_nc" class="form-select form-select-sm">
+                <option value="" {% if not data.get(k~'_nc') %}selected{% endif %}>—</option>
+                {% for opt in ['Κύρια','Δευτερεύουσα'] %}<option value="{{ opt }}" {% if data.get(k~'_nc')==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+              </select>
+            </td>{% endif %}
+            <td><textarea name="{{ k }}_desc" class="form-control form-control-sm ag" rows="3">{{ data.get(k~'_desc','') }}</textarea></td>
+            <td><textarea name="{{ k }}_corr" class="form-control form-control-sm ag" rows="3">{{ data.get(k~'_corr','') }}</textarea></td>
+            <td><input type="date" name="{{ k }}_time" class="form-control form-control-sm" value="{{ data.get(k~'_time','') }}"></td>
+            <td><textarea name="{{ k }}_resp" class="form-control form-control-sm ag" rows="3">{{ data.get(k~'_resp','') }}</textarea></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div></div>
+    {% elif sec.type == 'iso_report' %}
+    <div class="card"><div class="card-body">
+      <div id="isoReportLive">
+      {% set ifd = (iso_findings[0] if iso_findings else None) %}
+      {% if ifd %}
+      <h6><strong>Διαδικασίες με πλήρη συμμόρφωση</strong> — {{ ifd.total_compliant }}</h6>
+      {% if ifd.compliant %}<ul class="mb-3" style="font-size:0.86rem">{% for c in ifd.compliant %}<li>{{ c.clause }}</li>{% endfor %}</ul>{% else %}<div class="text-muted">—</div>{% endif %}
+      <h6 class="mt-4"><strong>Μη συμμορφώσεις</strong> — {{ ifd.total_nc }}</h6>
+      {% if ifd.no_nc %}
+      {% if ifd.total_nc == 0 %}<div class="text-success">Δεν εντοπίστηκαν.</div>{% endif %}
+      {% for d in ifd.major + ifd.minor %}
+      <div class="mt-2 mb-1"><span class="badge bg-danger" style="font-size:0.85rem">Μη συμμόρφωση {{ loop.index }}</span></div>
+      <table class="table table-sm table-bordered mb-3" style="max-width:1000px;font-size:0.83rem">
+        <tr class="table-light"><td colspan="2"><strong>Διαδικασία:</strong> {{ d.clause }}</td></tr>
+        {% if d.desc %}<tr><td colspan="2"><strong>Περιγραφή / Ευρήματα:</strong> {{ d.desc }}</td></tr>{% endif %}
+        <tr><td style="width:50%"><strong>Υπεύθυνος υλοποίησης:</strong> {{ d.resp }}</td><td><strong>Χρονοδιάγραμμα:</strong> {{ d.time }}</td></tr>
+        <tr><td colspan="2"><strong>Διορθωτική ενέργεια:</strong> {{ d.corr }}</td></tr>
+      </table>
+      {% endfor %}
+      {% else %}
+      <div class="fw-bold mt-3 mb-1 text-danger">Κύριες μη συμμορφώσεις — {{ ifd.major|length }}</div>
+      {% if not ifd.major %}<div class="text-success">Δεν εντοπίστηκαν.</div>{% endif %}
+      {% for d in ifd.major %}
+      <div class="mt-2 mb-1"><span class="badge bg-danger" style="font-size:0.85rem">Μη συμμόρφωση {{ loop.index }}</span></div>
+      <table class="table table-sm table-bordered mb-3" style="max-width:1000px;font-size:0.83rem">
+        <tr class="table-light"><td colspan="2"><strong>Διαδικασία:</strong> {{ d.clause }}</td></tr>
+        {% if d.desc %}<tr><td colspan="2"><strong>Περιγραφή / Ευρήματα:</strong> {{ d.desc }}</td></tr>{% endif %}
+        <tr><td style="width:50%"><strong>Υπεύθυνος υλοποίησης:</strong> {{ d.resp }}</td><td><strong>Χρονοδιάγραμμα:</strong> {{ d.time }}</td></tr>
+        <tr><td colspan="2"><strong>Διορθωτική ενέργεια:</strong> {{ d.corr }}</td></tr>
+      </table>
+      {% endfor %}
+      <div class="fw-bold mt-3 mb-1" style="color:#b8860b">Δευτερεύουσες μη συμμορφώσεις — {{ ifd.minor|length }}</div>
+      {% if not ifd.minor %}<div class="text-success">Δεν εντοπίστηκαν.</div>{% endif %}
+      {% for d in ifd.minor %}
+      <div class="mt-2 mb-1"><span class="badge bg-danger" style="font-size:0.85rem">Μη συμμόρφωση {{ loop.index }}</span></div>
+      <table class="table table-sm table-bordered mb-3" style="max-width:1000px;font-size:0.83rem">
+        <tr class="table-light"><td colspan="2"><strong>Διαδικασία:</strong> {{ d.clause }}</td></tr>
+        {% if d.desc %}<tr><td colspan="2"><strong>Περιγραφή / Ευρήματα:</strong> {{ d.desc }}</td></tr>{% endif %}
+        <tr><td style="width:50%"><strong>Υπεύθυνος υλοποίησης:</strong> {{ d.resp }}</td><td><strong>Χρονοδιάγραμμα:</strong> {{ d.time }}</td></tr>
+        <tr><td colspan="2"><strong>Διορθωτική ενέργεια:</strong> {{ d.corr }}</td></tr>
+      </table>
+      {% endfor %}
+      {% endif %}
+      {% endif %}
+      </div>
+      <div class="mt-4" style="max-width:1000px">
+        <label class="form-label fw-bold"><i class="bi bi-chat-left-text"></i> Παρατηρήσεις</label>
+        <textarea name="iso_observations" class="form-control" rows="4">{{ data.get('iso_observations','') }}</textarea>
+      </div>
+    </div></div>
+    {% else %}
+    <!-- report section -->
+    {% set rp = 'r2_' if sec.type == 'report2' else 'r' %}
+    <div class="card"><div class="card-body">
+      {% if sec.type == 'report2' %}
+      <div id="reportLive">
+      {% set tf = full_compliance|sum(attribute='full_count') %}
+      {% set ta = full_compliance|sum(attribute='total_count') %}
+      <h6><strong>Διαδικασίες με πλήρη συμμόρφωση</strong> — {{ tf }}/{{ ta }}</h6>
+      {% for fc in full_compliance %}
+      <div class="fw-bold mt-3 mb-1">{{ fc.name }}{% if fc.section_pct is not none %} — {{ fc.section_pct|fmtnum(1) }}%{% endif %}</div>
+      <table class="table table-sm table-bordered" style="max-width:760px; font-size:0.85rem">
+        <thead class="table-light"><tr><th>Διαδικασία / ROP</th><th style="width:180px">Ποσοστό συμμόρφωσης</th><th style="width:60px"></th></tr></thead>
+        <tbody>
+        {% for r in fc.rows if r.pct is not none and r.pct >= 100 %}
+        <tr><td>{{ r.proc }}</td><td>{{ r.pct|fmtnum(1) }}%</td><td class="text-center"><i class="bi bi-check-circle-fill" style="color:#198754"></i></td></tr>
+        {% else %}
+        <tr><td colspan="3" class="text-muted">—</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endfor %}
+      <div class="text-muted mt-2" style="font-size:0.78rem"><i class="bi bi-info-circle"></i> Υπολογίζεται αυτόματα από τον πίνακα «Σύνολο δείγματος ανά διαδικασία» (ενημερώνεται μετά την αποθήκευση).</div>
+      {% if low_compliance %}
+      <div class="alert alert-warning mt-4 mb-0" style="max-width:1000px; font-size:0.86rem">
+        <div class="mb-1">{{ low_text }}</div>
+        <ul class="mb-0">{% for lc in low_compliance %}<li>{{ lc.proc }}{% if full_compliance|length > 1 %} <span class="text-muted">({{ lc.section }})</span>{% endif %} — <strong class="text-danger">{{ lc.pct|fmtnum(1) }}%</strong></li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      <h6 class="mt-4"><strong>Αποκλίσεις</strong> — {{ deviations|map(attribute='deviations')|map('length')|sum }}</h6>
+      {% for dv in deviations %}
+      <div class="fw-bold mt-3 mb-1">{{ dv.name }}</div>
+      {% if not dv.deviations %}
+      <div class="text-success">Δεν εντοπίστηκαν αποκλίσεις.</div>
+      {% else %}
+      {% for d in dv.deviations %}
+      <div class="mt-2 mb-1"><span class="badge bg-danger" style="font-size:0.85rem">Απόκλιση {{ loop.index }}</span></div>
+      <table class="table table-sm table-bordered mb-3" style="max-width:1000px; font-size:0.83rem">
+        <tr class="table-light"><td colspan="4"><strong>Διαδικασία / ROP:</strong> {{ d.proc }}</td></tr>
+        <tr class="table-light"><th style="width:45%">Κριτήριο</th><th style="width:130px">Ποσοστό απόκλισης</th><th>Υπεύθυνος</th><th>Χρονοδιάγραμμα</th></tr>
+        <tr>
+          <td>{{ d.criterion }}</td>
+          <td class="text-end">{{ d.dev_pct }}%</td>
+          <td>{{ d.resp }}</td>
+          <td>{{ d.time }}</td>
+        </tr>
+        <tr><td colspan="4"><strong>Διορθωτική ενέργεια:</strong> {{ d.corr }}</td></tr>
+      </table>
+      {% endfor %}
+      {% endif %}
+      {% endfor %}
+      </div>
+      <div class="mt-4" style="max-width:1000px">
+        <label class="form-label fw-bold"><i class="bi bi-chat-left-text"></i> Παρατηρήσεις</label>
+        <textarea name="r2_observations" class="form-control" rows="4">{{ data.get('r2_observations','') }}</textarea>
+      </div>
+      {% else %}
+      <h6 class="text-muted">ΕΥΡΗΜΑΤΑ ΕΠΙΘΕΩΡΗΣΗΣ & ΣΥΝΟΨΗ</h6>
+      <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle" style="font-size:0.82rem">
+        <thead class="table-light"><tr>
+          <th style="width:34px">Α/Α</th><th>Απαιτούμενη Πρακτική Ασφάλειας</th><th style="width:90px">Συμμόρφωση</th>
+          <th style="width:70px">%</th><th>Περιγραφή / Ευρήματα</th><th>Διορθωτικές Ενέργειες</th>
+          <th style="width:110px">Χρονοδιάγραμμα</th><th style="width:12%">Υπεύθυνος</th>
+        </tr></thead>
+        <tbody>
+        {% for p in sec.practices %}
+        {% set ri = loop.index0 %}
+        <tr>
+          <td class="text-center">{{ p.no if p.no is not none else '' }}</td>
+          <td>{{ p.practice }}</td>
+          <td><select name="{{ rp }}{{ ri }}_comp" class="form-select form-select-sm">
+              <option value=""></option>
+              {% for v in ['ΝΑΙ','ΟΧΙ','ΔΕ'] %}<option value="{{ v }}" {% if data.get(rp~ri~'_comp')==v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select></td>
+          <td><input name="{{ rp }}{{ ri }}_pct" class="form-control form-control-sm text-end" value="{{ data.get(rp~ri~'_pct','') }}"></td>
+          <td><input name="{{ rp }}{{ ri }}_desc" class="form-control form-control-sm" value="{{ data.get(rp~ri~'_desc','') }}"></td>
+          <td><input name="{{ rp }}{{ ri }}_corr" class="form-control form-control-sm" value="{{ data.get(rp~ri~'_corr','') }}"></td>
+          <td><input name="{{ rp }}{{ ri }}_time" class="form-control form-control-sm" value="{{ data.get(rp~ri~'_time','') }}"></td>
+          <td><input name="{{ rp }}{{ ri }}_resp" class="form-control form-control-sm" value="{{ data.get(rp~ri~'_resp','') }}"></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="text-muted mt-2" style="font-size:0.8rem"><i class="bi bi-info-circle"></i> Για τη μορφοποιημένη αναφορά και εξαγωγή PDF, πάτησε «Αναφορά / PDF» πάνω δεξιά.</div>
+      {% endif %}
+    </div></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+</fieldset>
+</form>
+
+<div class="modal fade" id="pdfConfirmModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered">
+  <div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning"></i> Ελλιπείς υπογραφές</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><p id="pdfConfirmMsg" class="mb-0"></p></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">ΟΧΙ</button>
+      <button type="button" class="btn btn-success" id="pdfConfirmYes">ΝΑΙ</button>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function calcRow(k){
+  var s=document.querySelector('[name="'+k+'_sample"]'), c=document.querySelector('[name="'+k+'_comp"]');
+  var dev=document.getElementById('dev-'+k), pct=document.getElementById('pct-'+k);
+  if(!s||!c||!dev||!pct) return;
+  var sv=parseFloat((s.value||'').replace(',','.')), cv=parseFloat((c.value||'').replace(',','.'));
+  if(!isNaN(sv)&&!isNaN(cv)&&sv>0){ dev.textContent=Math.round((sv-cv)*100)/100; pct.textContent=Math.round(cv/sv*1000)/10+'%'; }
+  else { dev.textContent='—'; pct.textContent='—'; }
+}
+function pctColor(pct){ if(pct>=100) return '#d1e7dd'; if(pct>=90) return '#ffe0b2'; return '#f8d7da'; }
+function sumProcs(){
+  var sampleT={}, compT={};
+  document.querySelectorAll('.calc[name$="_sample"]').forEach(function(el){
+    var pr=el.getAttribute('data-proc'); if(!pr) return;
+    var v=parseFloat((el.value||'').replace(',','.'));
+    if(!isNaN(v)) sampleT[pr]=(sampleT[pr]||0)+v;
+  });
+  document.querySelectorAll('.calc[name$="_comp"]').forEach(function(el){
+    var pr=el.getAttribute('data-proc'); if(!pr) return;
+    var v=parseFloat((el.value||'').replace(',','.'));
+    if(!isNaN(v)) compT[pr]=(compT[pr]||0)+v;
+  });
+  function r2(x){ return Math.round(x*100)/100; }
+  document.querySelectorAll('[id^="psum-"]').forEach(function(sp){
+    var k=sp.id.slice(5); sp.textContent = sampleT[k] ? r2(sampleT[k]) : 0;
+  });
+  document.querySelectorAll('[id^="pcomp-"]').forEach(function(sp){
+    var k=sp.id.slice(6); sp.textContent = compT[k] ? r2(compT[k]) : 0;
+  });
+  document.querySelectorAll('[id^="pdev-"]').forEach(function(sp){
+    var k=sp.id.slice(5); sp.textContent = r2((sampleT[k]||0)-(compT[k]||0));
+  });
+  document.querySelectorAll('[id^="ppct-"]').forEach(function(sp){
+    var k=sp.id.slice(5); var s=sampleT[k]||0, cc=compT[k]||0; var td=sp.parentElement;
+    if(s>0){ var pct=cc/s*100; sp.textContent=Math.round(pct*10)/10+'%'; if(td) td.style.background=pctColor(pct); }
+    else { sp.textContent='—'; if(td) td.style.background=''; }
+  });
+  document.querySelectorAll('[id^="totSample-"]').forEach(function(el){
+    var si=el.id.slice(10), ts=0, tc=0;
+    for(var k in sampleT){ if(k.indexOf(si+'p')===0) ts+=sampleT[k]; }
+    for(var k2 in compT){ if(k2.indexOf(si+'p')===0) tc+=compT[k2]; }
+    el.textContent=r2(ts);
+    var ce=document.getElementById('totComp-'+si); if(ce) ce.textContent=r2(tc);
+    var de=document.getElementById('totDev-'+si); if(de) de.textContent=r2(ts-tc);
+    var pe=document.getElementById('totPct-'+si), box=document.getElementById('totBox-'+si);
+    if(pe){ if(ts>0){ var pp=tc/ts*100; pe.textContent=Math.round(pp*10)/10+'%'; if(box) box.style.background=pctColor(pp); }
+            else { pe.textContent='—'; if(box) box.style.background='#e9ecef'; } }
+  });
+}
+document.querySelectorAll('.calc').forEach(function(el){ el.addEventListener('input', function(){ calcRow(el.getAttribute('data-key')); sumProcs(); }); });
+document.querySelectorAll('.calc[name$="_sample"]').forEach(function(el){ calcRow(el.getAttribute('data-key')); });
+sumProcs();
+
+// --- Live rebuild της «Αναφορά» από τα τρέχοντα πεδία ---
+var AUDIT_STRUCT = {{ audit_struct|tojson }};
+var LOW_PCT = {{ low_pct|tojson }}, LOW_TEXT = {{ low_text|tojson }};
+function _esc(t){ t=(t==null?'':''+t); return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _escA(t){ return _esc(t).replace(/"/g,'&quot;'); }
+function _nv(name){ var el=document.querySelector('[name="'+name+'"]'); if(!el) return null; var v=parseFloat((el.value||'').replace(',','.')); return isNaN(v)?null:v; }
+function _sv(name){ var el=document.querySelector('[name="'+name+'"]'); return el?el.value:''; }
+function buildReport(){
+  var box=document.getElementById('reportLive'); if(!box) return;
+  var devCache={}; box.querySelectorAll('[name^="dev_"]').forEach(function(el){ devCache[el.getAttribute('name')]=el.value; });
+  var totalFull=0, totalAll=0, devTotal=0, comp='', devs='', low=[];
+  AUDIT_STRUCT.forEach(function(sec){
+    var pS={}, pC={}, secS=0, secC=0, secDevs=[];
+    sec.criteria.forEach(function(cr){
+      var k='s'+sec.si+'c'+cr.ci; var sv=_nv(k+'_sample'), cv=_nv(k+'_comp');
+      if(cr.pidx!=null){ if(sv!=null){ pS[cr.pidx]=(pS[cr.pidx]||0)+sv; secS+=sv; } if(cv!=null){ pC[cr.pidx]=(pC[cr.pidx]||0)+cv; secC+=cv; } }
+      if(sv!=null && sv>0 && cv!=null && cv<sv){ var proc=(cr.pidx!=null && sec.procedures[cr.pidx])||''; secDevs.push({ci:cr.ci, proc:proc, criterion:cr.criterion, dpct:Math.round((sv-cv)/sv*1000)/10, corr:_sv(k+'_corr'), resp:_sv(k+'_resp'), time:_sv(k+'_time')}); }
+    });
+    var rows='', full=0, ev=0;
+    sec.procedures.forEach(function(pn, pidx){ if(pS[pidx]!=null && pS[pidx]>0){ ev++; var pct=Math.round((pC[pidx]||0)/pS[pidx]*1000)/10; if(pct<LOW_PCT) low.push({sec:sec.name, proc:pn, pct:pct}); if(pct>=100){ full++; rows+='<tr><td>'+_esc(pn)+'</td><td>'+pct+'%</td><td class="text-center"><i class="bi bi-check-circle-fill" style="color:#198754"></i></td></tr>'; } } });
+    if(!rows) rows='<tr><td colspan="3" class="text-muted">—</td></tr>';
+    totalFull+=full; totalAll+=ev; var spct=secS>0?(Math.round(secC/secS*1000)/10):null;
+    comp+='<div class="fw-bold mt-3 mb-1">'+_esc(sec.name)+(spct!=null?(' — '+spct+'%'):'')+'</div>'+'<table class="table table-sm table-bordered" style="max-width:760px;font-size:0.85rem"><thead class="table-light"><tr><th>Διαδικασία / ROP</th><th style="width:180px">Ποσοστό συμμόρφωσης</th><th style="width:60px"></th></tr></thead><tbody>'+rows+'</tbody></table>';
+    devs+='<div class="fw-bold mt-3 mb-1">'+_esc(sec.name)+'</div>';
+    if(!secDevs.length){ devs+='<div class="text-success">Δεν εντοπίστηκαν αποκλίσεις.</div>'; }
+    else { secDevs.forEach(function(d,i){ devTotal++; var rn='dev_'+sec.si+'_'+d.ci+'_resp', tn='dev_'+sec.si+'_'+d.ci+'_time'; var rv=devCache[rn]||'', tv=devCache[tn]||'';
+      devs+='<div class="mt-2 mb-1"><span class="badge bg-danger" style="font-size:0.85rem">Απόκλιση '+(i+1)+'</span></div>'+'<table class="table table-sm table-bordered mb-3" style="max-width:1000px;font-size:0.83rem">'+'<tr class="table-light"><td colspan="4"><strong>Διαδικασία / ROP:</strong> '+_esc(d.proc)+'</td></tr>'+'<tr class="table-light"><th style="width:45%">Κριτήριο</th><th style="width:130px">Ποσοστό απόκλισης</th><th>Υπεύθυνος</th><th>Χρονοδιάγραμμα</th></tr>'+'<tr><td>'+_esc(d.criterion)+'</td><td class="text-end">'+d.dpct+'%</td>'+'<td>'+_esc(d.resp)+'</td>'+'<td>'+_esc(d.time)+'</td></tr>'+'<tr><td colspan="4"><strong>Διορθωτική ενέργεια:</strong> '+_esc(d.corr)+'</td></tr></table>';
+    }); }
+  });
+  var lh='';
+  if(low.length){
+    lh='<div class="alert alert-warning mt-4 mb-0" style="max-width:1000px;font-size:0.86rem"><div class="mb-1">'+_esc(LOW_TEXT)+'</div><ul class="mb-0">';
+    low.forEach(function(l){ lh+='<li>'+_esc(l.proc)+(AUDIT_STRUCT.length>1?(' <span class="text-muted">('+_esc(l.sec)+')</span>'):'')+' — <strong class="text-danger">'+l.pct+'%</strong></li>'; });
+    lh+='</ul></div>';
+  }
+  box.innerHTML='<h6><strong>Διαδικασίες με πλήρη συμμόρφωση</strong> — '+totalFull+'/'+totalAll+'</h6>'+comp+'<div class="text-muted mt-2" style="font-size:0.78rem"><i class="bi bi-info-circle"></i> Υπολογίζεται αυτόματα από τον πίνακα «Σύνολο δείγματος ανά διαδικασία».</div>'+lh+'<h6 class="mt-4"><strong>Αποκλίσεις</strong> — '+devTotal+'</h6>'+devs;
+}
+document.querySelectorAll('button[data-report="1"]').forEach(function(btn){ btn.addEventListener('shown.bs.tab', buildReport); });
+
+// --- Live rebuild της ISO «Αναφορά» ---
+var ISO_STRUCT = {{ iso_struct|tojson }};
+function _gv(n){ var el=document.querySelector('[name="'+n+'"]'); return el?el.value:''; }
+function _isoBlock(d, i){
+  return '<div class="mt-2 mb-1"><span class="badge bg-danger" style="font-size:0.85rem">Μη συμμόρφωση '+(i+1)+'</span></div>'+'<table class="table table-sm table-bordered mb-3" style="max-width:1000px;font-size:0.83rem">'
+    +'<tr class="table-light"><td colspan="2"><strong>Διαδικασία:</strong> '+_esc(d.clause)+'</td></tr>'
+    +(d.desc?('<tr><td colspan="2"><strong>Περιγραφή / Ευρήματα:</strong> '+_esc(d.desc)+'</td></tr>'):'')
+    +'<tr><td style="width:50%"><strong>Υπεύθυνος υλοποίησης:</strong> '+_esc(d.resp)+'</td><td><strong>Χρονοδιάγραμμα:</strong> '+_esc(d.time)+'</td></tr>'
+    +'<tr><td colspan="2"><strong>Διορθωτική ενέργεια:</strong> '+_esc(d.corr)+'</td></tr></table>';
+}
+function buildIsoReport(){
+  var box=document.getElementById('isoReportLive'); if(!box||!ISO_STRUCT.length) return;
+  var sec=ISO_STRUCT[0], compliant=[], major=[], minor=[];
+  sec.clauses.forEach(function(cl){
+    var k='iso'+sec.si+'_'+cl.ci, comp=_gv(k+'_comp');
+    var rec={clause:cl.clause, desc:_gv(k+'_desc'), corr:_gv(k+'_corr'), time:_gv(k+'_time'), resp:_gv(k+'_resp'), nc:_gv(k+'_nc')};
+    if(comp==='ΝΑΙ') compliant.push(rec);
+    else if(comp==='ΟΧΙ'){ (rec.nc==='Κύρια'?major:minor).push(rec); }
+  });
+  var h='<h6><strong>Διαδικασίες με πλήρη συμμόρφωση</strong> — '+compliant.length+'</h6>';
+  if(compliant.length){ h+='<ul class="mb-3" style="font-size:0.86rem">'; compliant.forEach(function(c){h+='<li>'+_esc(c.clause)+'</li>';}); h+='</ul>'; } else h+='<div class="text-muted">—</div>';
+  h+='<h6 class="mt-4"><strong>Μη συμμορφώσεις</strong> — '+(major.length+minor.length)+'</h6>';
+  if(sec.no_nc){
+    var allnc=major.concat(minor);
+    if(!allnc.length) h+='<div class="text-success">Δεν εντοπίστηκαν.</div>';
+    allnc.forEach(function(d,i){h+=_isoBlock(d,i);});
+  } else {
+  h+='<div class="fw-bold mt-3 mb-1 text-danger">Κύριες μη συμμορφώσεις — '+major.length+'</div>';
+  if(!major.length) h+='<div class="text-success">Δεν εντοπίστηκαν.</div>';
+  major.forEach(function(d,i){h+=_isoBlock(d,i);});
+  h+='<div class="fw-bold mt-3 mb-1" style="color:#b8860b">Δευτερεύουσες μη συμμορφώσεις — '+minor.length+'</div>';
+  if(!minor.length) h+='<div class="text-success">Δεν εντοπίστηκαν.</div>';
+  minor.forEach(function(d,i){h+=_isoBlock(d,i);});
+  }
+  box.innerHTML=h;
+}
+document.querySelectorAll('button[data-isoreport="1"]').forEach(function(btn){ btn.addEventListener('shown.bs.tab', buildIsoReport); });
+
+// --- Αποθήκευση + άνοιγμα PDF (με έλεγχο υπογραφών) ---
+var _unsigned = {{ unsigned_labels|tojson }};
+var _pdfUrl = null;
+var INST_STATUS = "{{ inst.status }}";
+var EDITABLE = {{ 'true' if editable else 'false' }};
+function _savePdf(url){
+  if(!url) return;
+  if(!EDITABLE){ window.open(url, '_blank'); return; }
+  var w = window.open('', '_blank');
+  var form=document.getElementById('clForm');
+  if(!form){ if(w) w.location=url; else window.open(url,'_blank'); return; }
+  var fd=new FormData(form);
+  fd.set('_save', 'draft');
+  fetch(form.action, {method:'POST', body:fd, credentials:'same-origin'})
+    .then(function(){ if(w) w.location=url; else window.open(url,'_blank'); })
+    .catch(function(){ if(w) w.location=url; else window.open(url,'_blank'); });
+}
+function _pdfClick(e){
+  e.preventDefault();
+  _pdfUrl = this.getAttribute('href');
+  if(_unsigned && _unsigned.length){
+    var verb = _unsigned.length > 1 ? 'δεν έχουν υπογράψει' : 'δεν έχει υπογράψει';
+    var who = _unsigned.join(' και '); who = who.charAt(0).toUpperCase() + who.slice(1);
+    document.getElementById('pdfConfirmMsg').textContent = who + ' ' + verb + '. Θέλετε να προχωρήσετε στην εμφάνιση του PDF;';
+    new bootstrap.Modal(document.getElementById('pdfConfirmModal')).show();
+  } else { _savePdf(_pdfUrl); }
+}
+['repbtn','rep2btn'].forEach(function(id){ var b=document.getElementById(id); if(b) b.addEventListener('click', _pdfClick); });
+var _yes=document.getElementById('pdfConfirmYes');
+if(_yes) _yes.addEventListener('click', function(){
+  var m=bootstrap.Modal.getInstance(document.getElementById('pdfConfirmModal')); if(m) m.hide();
+  _savePdf(_pdfUrl);
+});
+
+  // --- Auto-expand πεδία Περιγραφής/Ευρημάτων & Διορθωτικών ---
+  (function(){
+    function grow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+    [].slice.call(document.querySelectorAll('textarea.ag')).forEach(function(t){
+      t.style.overflowY='hidden'; t.style.resize='vertical'; t.style.minHeight='4.5em';
+      grow(t);
+      t.addEventListener('input', function(){ grow(t); });
+    });
+  })();
+</script>
+{% endblock %}

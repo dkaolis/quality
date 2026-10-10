@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Δημιουργία Δραστηριότητας {{ label }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div><h2><i class="bi bi-diagram-3"></i> Δημιουργία Δραστηριότητας {{ label }}</h2>
+  <div class="text-muted" style="font-size:0.85rem">Ολοκλήρωσε τα βήματα με τη σειρά: Δραστηριότητα → Ατζέντα → Παρουσιολόγιο → Λίστα Επικοινωνίας.</div></div>
+  <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Πίσω</a>
+</div>
+
+<style>
+.wiz-wrap{ position:relative; width:480px; max-width:100%; height:470px; margin:6px auto 0; }
+.wiz-svg{ position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+.wiz-c{ position:absolute; width:120px; height:120px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; font-weight:600; font-size:0.9rem; padding:8px; z-index:1; box-shadow:0 5px 14px rgba(0,0,0,0.16); user-select:none; transition:background .35s, color .35s, transform .15s; }
+.wiz-c.locked{ background:#cbd5e1; color:#475569; cursor:not-allowed; opacity:.7; }
+.wiz-c.active{ background:#f59e0b; color:#fff; cursor:pointer; }
+.wiz-c.active:hover{ transform:scale(1.05); }
+.wiz-c.done{ background:#16a34a; color:#fff; cursor:pointer; }
+.wiz-center{ left:170px; top:165px; width:140px; height:140px; font-size:1rem; }
+.wiz-agenda{ left:180px; top:10px; }
+.wiz-att{ left:330px; top:330px; }
+.wiz-con{ left:30px; top:330px; font-size:0.82rem; }
+.wiz-legend{ text-align:center; font-size:0.8rem; color:#64748b; margin-top:6px; }
+.wiz-legend .dot{ display:inline-block; width:12px; height:12px; border-radius:50%; vertical-align:middle; margin:0 4px 0 12px; }
+</style>
+
+<div class="wiz-wrap">
+  <svg class="wiz-svg" viewBox="0 0 480 470" preserveAspectRatio="none">
+    <line x1="240" y1="235" x2="240" y2="70" stroke="#94a3b8" stroke-width="3"/>
+    <line x1="240" y1="235" x2="390" y2="390" stroke="#94a3b8" stroke-width="3"/>
+    <line x1="240" y1="235" x2="90" y2="390" stroke="#94a3b8" stroke-width="3"/>
+  </svg>
+  <div id="cAct" class="wiz-c wiz-center active">Δραστηριότητα</div>
+  <div id="cAgenda" class="wiz-c wiz-agenda locked">Ατζέντα</div>
+  <div id="cAtt" class="wiz-c wiz-att locked">Παρουσιολόγιο</div>
+  <div id="cCon" class="wiz-c wiz-con locked">Λίστα επικοινωνίας</div>
+</div>
+<div class="wiz-legend"><span class="dot" style="background:#f59e0b"></span>Τρέχον βήμα <span class="dot" style="background:#16a34a"></span>Ολοκληρωμένο <span class="dot" style="background:#cbd5e1"></span>Κλειδωμένο</div>
+
+<div id="wizMsg" class="alert alert-success text-center" style="display:none; max-width:620px; margin:18px auto;"></div>
+
+<!-- ACTIVITY -->
+<div class="modal fade" id="mAct" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Δραστηριότητα</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Τίτλος δραστηριότητας</label><input id="aTitle" class="form-control form-control-sm"></div>
+    <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Ημερομηνία</label><input type="date" id="aDate" class="form-control form-control-sm"></div>
+    <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Υπεύθυνος δραστηριότητας</label>
+      <select id="aOfficer" class="form-select form-select-sm"><option value="">— Επίλεξε —</option></select></div>
+    <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Χαρακτηρισμός</label>
+      <select id="aKind" class="form-select form-select-sm"><option value="Τακτική">Τακτική</option><option value="Έκτακτη">Έκτακτη</option></select></div>
+    <div class="mb-2" id="aFreqWrap"><label class="form-label mb-1" style="font-size:0.85rem">Συχνότητα (τακτικής)</label>
+      <select id="aFreq" class="form-select form-select-sm"><option value="Μηνιαία">Μηνιαία</option><option value="Τριμηνιαία">Τριμηνιαία</option><option value="Τετραμηνιαία">Τετραμηνιαία</option><option value="Εξαμηνιαία">Εξαμηνιαία</option><option value="Ετήσια">Ετήσια</option></select></div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary" id="aPrint"><i class="bi bi-printer"></i> Εκτύπωση</button>
+    <button type="button" class="btn btn-success" id="aSave"><i class="bi bi-save"></i> Αποθήκευση</button>
+  </div>
+</div></div></div>
+
+<!-- AGENDA -->
+<div class="modal fade" id="mAgenda" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Ατζέντα</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div id="agHdr" class="text-muted mb-2" style="font-size:0.85rem"></div>
+    <label class="form-label mb-1" style="font-size:0.85rem">Θέματα & Απορρέοντα</label>
+    <table class="table table-sm table-bordered mb-1"><thead class="table-light"><tr><th style="width:48%">Θέμα</th><th style="width:48%">Απορρέον</th><th style="width:4%"></th></tr></thead><tbody id="agRows"></tbody></table>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="agAdd"><i class="bi bi-plus-lg"></i> Θέμα</button>
+  </div>
+  <div class="modal-footer justify-content-between">
+    <button type="button" class="btn btn-outline-dark" id="agBack"><i class="bi bi-arrow-left"></i> Πίσω</button>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary" id="agPrint"><i class="bi bi-printer"></i> Εκτύπωση</button>
+      <button type="button" class="btn btn-success" id="agSave"><i class="bi bi-save"></i> Αποθήκευση</button>
+    </div>
+  </div>
+</div></div></div>
+
+<!-- ATTENDANCE -->
+<div class="modal fade" id="mAtt" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Παρουσιολόγιο</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div id="atHdr" class="text-muted mb-2" style="font-size:0.85rem"></div>
+    <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="atAll"><label class="form-check-label" for="atAll"><strong>Επιλογή Όλων</strong></label></div>
+    <div id="atClinics" style="max-height:260px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px; padding:8px"></div>
+  </div>
+  <div class="modal-footer justify-content-between">
+    <button type="button" class="btn btn-outline-dark" id="atBack"><i class="bi bi-arrow-left"></i> Πίσω</button>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary" id="atPrint"><i class="bi bi-printer"></i> Εκτύπωση</button>
+      <button type="button" class="btn btn-success" id="atSave"><i class="bi bi-save"></i> Αποθήκευση</button>
+    </div>
+  </div>
+</div></div></div>
+
+<!-- CONTACTS -->
+<div class="modal fade" id="mCon" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Λίστα Επικοινωνίας</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div id="coHdr" class="text-muted mb-2" style="font-size:0.85rem"></div>
+    <label class="form-label mb-1" style="font-size:0.85rem">Ηλεκτρονικές διευθύνσεις (από το παρουσιολόγιο)</label>
+    <textarea id="coText" class="form-control" rows="6" style="font-size:0.85rem"></textarea>
+    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="coCopy"><i class="bi bi-clipboard"></i> Αντιγραφή</button>
+    <span id="coMsg" class="text-success ms-2" style="font-size:0.8rem"></span>
+  </div>
+  <div class="modal-footer justify-content-between">
+    <button type="button" class="btn btn-outline-dark" id="coBack"><i class="bi bi-arrow-left"></i> Πίσω</button>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary" id="coPrint"><i class="bi bi-printer"></i> Εκτύπωση</button>
+      <button type="button" class="btn btn-success" id="coSave"><i class="bi bi-save"></i> Αποθήκευση</button>
+    </div>
+  </div>
+</div></div></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  var QO = {{ qo_map|tojson }};
+  var QA = {{ qa_officers|tojson }};
+  var ORIGIN = location.origin;
+  var LOGO1 = ORIGIN + "{{ url_for('static', filename='img/logo_okypy.png') }}";
+  var LOGO2 = ORIGIN + "{{ url_for('static', filename='img/logo_audit.png') }}";
+  var SAVE_ACT = "{{ url_for('qo_activity_save') }}";
+  var SAVE_DOC = "{{ url_for('qo_doc_save') }}";
+  var BACK = "{{ back_url }}";
+  var DOMAIN = "{{ domain }}";
+  function esc(t){ t=(t==null?'':''+t); return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function todayISO(){ var t=new Date(); return t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2); }
+  function fmtDate(iso){ if(!iso) return ''; var p=(''+iso).split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : iso; }
+  function post(url, body){ return fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(body)}).then(function(r){ return r.json(); }); }
+  var M = {};
+  function modal(id){ if(!M[id]) M[id]=new bootstrap.Modal(document.getElementById(id)); return M[id]; }
+  function setC(id, st){ var el=document.getElementById(id); if(el) el.className='wiz-c '+({cAct:'wiz-center',cAgenda:'wiz-agenda',cAtt:'wiz-att',cCon:'wiz-con'}[id])+' '+st; }
+
+  var wiz = {id:null, code:'', title:'', date:'', officer:'', attData:[], agendaId:null, attId:null, conId:null, agendaItems:null, kind:'Τακτική', frequency:'Μηνιαία'};
+
+  // officer dropdown
+  (function(){ var sel=document.getElementById('aOfficer'); (QA||[]).forEach(function(n){ n=(n||'').trim(); if(!n) return; var op=document.createElement('option'); op.value=n; op.textContent=n; sel.appendChild(op); }); })();
+  function printDoc(title, inner){ var h='<html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>@page{size:A4;margin:14mm} body{font-family:Arial,sans-serif;color:#000} table{border-collapse:collapse;width:100%;font-size:0.85rem;margin-top:6px} th,td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top} th{background:#eee} td.sig{height:38px}</style></head><body>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:6px"><img src="'+LOGO1+'" style="height:58px"><div style="text-align:center"><div style="font-size:1.25rem;font-weight:bold">'+esc(title)+'</div><div style="font-size:0.9rem">Γενικό Νοσοκομείο Λευκωσίας</div><div style="font-size:0.9rem">Ημερομηνία: '+esc(fmtDate(wiz.date))+'</div></div><img src="'+LOGO2+'" style="height:58px"></div>'
+      +'<div style="text-align:center;color:#555;font-size:0.78rem;margin-bottom:10px">Accreditation Canada - Platinum</div>'
+      +inner
+      +'<div style="margin-top:34px;font-size:0.9rem"><div>Υπεύθυνος: <strong>'+(esc(wiz.officer)||'…')+'</strong></div><div style="margin-top:30px">Υπογραφή: ______________________________</div></div>'
+      +'</body></html>';
+    var w=window.open('','_blank'); if(!w){ alert('Επιτρέψτε τα pop-ups.'); return; } w.document.write(h); w.document.close(); w.focus(); setTimeout(function(){ try{w.print();}catch(e){} },350);
+  }
+  function hdrText(){ return 'Τίτλος: '+esc(wiz.title)+' · Ημερομηνία: '+esc(fmtDate(wiz.date))+' · Υπεύθυνος: '+esc(wiz.officer); }
+
+  // ---- circle clicks ----
+  document.getElementById('cAct').addEventListener('click', function(){ if(this.classList.contains('locked')) return; openAct(); });
+  document.getElementById('cAgenda').addEventListener('click', function(){ if(this.classList.contains('locked')) return; openAgenda(); });
+  document.getElementById('cAtt').addEventListener('click', function(){ if(this.classList.contains('locked')) return; openAtt(); });
+  document.getElementById('cCon').addEventListener('click', function(){ if(this.classList.contains('locked')) return; openCon(); });
+  document.getElementById('agBack').addEventListener('click', function(){ modal('mAgenda').hide(); setTimeout(openAct, 250); });
+  document.getElementById('atBack').addEventListener('click', function(){ modal('mAtt').hide(); setTimeout(openAgenda, 250); });
+  document.getElementById('coBack').addEventListener('click', function(){ modal('mCon').hide(); setTimeout(openAtt, 250); });
+
+  // ---- ACTIVITY ----
+  function aFreqToggle(){ document.getElementById('aFreqWrap').style.display = (document.getElementById('aKind').value==='Τακτική') ? '' : 'none'; }
+  document.getElementById('aKind').addEventListener('change', aFreqToggle);
+  function openAct(){ document.getElementById('aTitle').value=wiz.title||''; if(!document.getElementById('aDate').value) document.getElementById('aDate').value=wiz.date||todayISO(); if(wiz.officer) document.getElementById('aOfficer').value=wiz.officer; document.getElementById('aKind').value=wiz.kind||'Τακτική'; document.getElementById('aFreq').value=wiz.frequency||'Μηνιαία'; aFreqToggle(); modal('mAct').show(); }
+  document.getElementById('aSave').addEventListener('click', function(){
+    var title=(document.getElementById('aTitle').value||'').trim();
+    var date=document.getElementById('aDate').value;
+    var officer=(document.getElementById('aOfficer').value||'').trim();
+    var kind=document.getElementById('aKind').value;
+    var freq=(kind==='Τακτική') ? document.getElementById('aFreq').value : '';
+    if(!title){ alert('Βάλε τίτλο δραστηριότητας.'); return; }
+    post(SAVE_ACT, {id:wiz.id, title:title, date:date, officer:officer, kind:kind, frequency:freq, domain:DOMAIN}).then(function(j){
+      if(!j||!j.ok){ alert('Σφάλμα αποθήκευσης.'); return; }
+      wiz.id=j.id; wiz.code=j.code; wiz.title=title; wiz.date=date; wiz.officer=officer; wiz.kind=kind; wiz.frequency=freq;
+      setC('cAct','done'); if(document.getElementById('cAgenda').classList.contains('locked')) setC('cAgenda','active');
+      modal('mAct').hide();
+    });
+  });
+  document.getElementById('aPrint').addEventListener('click', function(){
+    var title=(document.getElementById('aTitle').value||'Δραστηριότητα').trim(); wiz.date=document.getElementById('aDate').value; wiz.officer=(document.getElementById('aOfficer').value||'').trim();
+    var _k=document.getElementById('aKind').value; var _f=(_k==='Τακτική')?(' — '+document.getElementById('aFreq').value):''; printDoc(title, '<p style="font-size:0.95rem">Τίτλος δραστηριότητας: <strong>'+esc(title)+'</strong></p><p style="font-size:0.95rem">Χαρακτηρισμός: <strong>'+esc(_k+_f)+'</strong></p>');
+  });
+
+  // ---- AGENDA ----
+  function agAddRow(t,o){ var tb=document.getElementById('agRows'); var tr=document.createElement('tr'); tr.innerHTML='<td><textarea class="form-control form-control-sm ag-t" rows="2"></textarea></td><td><textarea class="form-control form-control-sm ag-o" rows="2"></textarea></td><td class="text-center align-middle"><a class="text-danger ag-d" style="cursor:pointer"><i class="bi bi-x-circle"></i></a></td>'; tb.appendChild(tr); if(t) tr.querySelector('.ag-t').value=t; if(o) tr.querySelector('.ag-o').value=o; tr.querySelector('.ag-d').addEventListener('click', function(){ tr.remove(); }); }
+  document.getElementById('agAdd').addEventListener('click', function(){ agAddRow('',''); });
+  function openAgenda(){ document.getElementById('agHdr').textContent=hdrText(); var tb=document.getElementById('agRows'); if(wiz.agendaItems && wiz.agendaItems.length){ tb.innerHTML=''; wiz.agendaItems.forEach(function(it){ agAddRow(it.topic, it.outcome); }); } else if(!document.querySelectorAll('#agRows tr').length){ agAddRow('',''); agAddRow('',''); agAddRow('',''); } modal('mAgenda').show(); }
+  function agItems(){ var items=[]; [].slice.call(document.querySelectorAll('#agRows tr')).forEach(function(tr){ var t=(tr.querySelector('.ag-t').value||'').trim(); var o=(tr.querySelector('.ag-o').value||'').trim(); if(t||o) items.push({topic:t, outcome:o}); }); return items; }
+  document.getElementById('agSave').addEventListener('click', function(){
+    var items=agItems(); if(!items.length){ alert('Πρόσθεσε τουλάχιστον ένα θέμα.'); return; }
+    post(SAVE_DOC, {type:'agenda', id:wiz.agendaId, activity_id:wiz.id, title:wiz.title, date:wiz.date, officer:wiz.officer, data:items}).then(function(j){
+      if(!j||!j.ok){ alert('Σφάλμα.'); return; }
+      wiz.agendaId=j.id; wiz.agendaItems=items;
+      setC('cAgenda','done'); if(document.getElementById('cAtt').classList.contains('locked')) setC('cAtt','active'); modal('mAgenda').hide();
+    });
+  });
+  document.getElementById('agPrint').addEventListener('click', function(){ var items=agItems(); var tbl='<table><thead><tr><th style="width:50%">Θέματα</th><th style="width:50%">Απορρέοντα</th></tr></thead><tbody>'; items.forEach(function(it){ tbl+='<tr><td>'+esc(it.topic)+'</td><td>'+esc(it.outcome)+'</td></tr>'; }); tbl+='</tbody></table>'; printDoc(wiz.title||'Ατζέντα', tbl); });
+
+  // ---- ATTENDANCE ----
+  function openAtt(){
+    document.getElementById('atHdr').textContent=hdrText();
+    var box=document.getElementById('atClinics');
+    if(!box.getAttribute('data-built')){
+      Object.keys(QO||{}).sort(function(a,b){return a.localeCompare(b,'el');}).forEach(function(c){ var id='atc_'+btoa(unescape(encodeURIComponent(c))).replace(/[^a-zA-Z0-9]/g,''); var d=document.createElement('div'); d.className='form-check'; d.innerHTML='<input class="form-check-input at-cl" type="checkbox" value="'+esc(c)+'" id="'+id+'"><label class="form-check-label" for="'+id+'" style="font-size:0.85rem">'+esc(c)+'</label>'; box.appendChild(d); });
+      box.setAttribute('data-built','1');
+    }
+    var sel={}; (wiz.attData||[]).forEach(function(p){ if(p.clinic) sel[p.clinic]=1; });
+    [].slice.call(document.querySelectorAll('#atClinics .at-cl')).forEach(function(cb){ cb.checked=!!sel[cb.value]; });
+    document.getElementById('atAll').checked=false;
+    modal('mAtt').show();
+  }
+  document.getElementById('atAll').addEventListener('change', function(){ var ck=this.checked; [].slice.call(document.querySelectorAll('#atClinics .at-cl')).forEach(function(cb){ cb.checked=ck; }); });
+  function attParts(){ var out=[]; [].slice.call(document.querySelectorAll('#atClinics .at-cl:checked')).forEach(function(cb){ var c=cb.value; var info=QO[c]||{}; var offs=info.officers||[]; var phones=(info.phones||[]); if(!offs.length){ out.push({clinic:c, officer:'', phones:phones, emails:[]}); } else offs.forEach(function(o){ out.push({clinic:c, officer:(o.name||''), phones:phones, emails:(o.emails||[])}); }); }); return out; }
+  document.getElementById('atSave').addEventListener('click', function(){
+    var parts=attParts(); if(!parts.length){ alert('Επίλεξε τουλάχιστον μία κλινική/τμήμα.'); return; }
+    wiz.attData=parts;
+    post(SAVE_DOC, {type:'attendance', id:wiz.attId, activity_id:wiz.id, title:wiz.title, date:wiz.date, officer:wiz.officer, data:parts}).then(function(j){
+      if(!j||!j.ok){ alert('Σφάλμα.'); return; }
+      wiz.attId=j.id;
+      setC('cAtt','done'); if(document.getElementById('cCon').classList.contains('locked')) setC('cCon','active'); modal('mAtt').hide();
+    });
+  });
+  function attTbl(parts){ var tbl='<table><thead><tr><th>Κλινική / Τμήμα</th><th>Συμμετέχων</th><th>Τηλέφωνα</th><th>Email</th><th style="width:170px">Υπογραφή</th></tr></thead><tbody>'; parts.forEach(function(p){ var ph=((p.phones||[]).map(esc).join('<br>'))||'—'; var em=((p.emails||[]).map(esc).join('<br>'))||'—'; tbl+='<tr><td><strong>'+esc(p.clinic)+'</strong></td><td>'+(esc(p.officer)||'—')+'</td><td>'+ph+'</td><td>'+em+'</td><td class="sig"></td></tr>'; }); tbl+='</tbody></table>'; return tbl; }
+  document.getElementById('atPrint').addEventListener('click', function(){ var parts=attParts(); if(parts.length) wiz.attData=parts; printDoc(wiz.title||'Παρουσιολόγιο', attTbl(parts.length?parts:wiz.attData)); });
+
+  // ---- CONTACTS ----
+  function contactEmails(){ var seen={}, out=[]; (wiz.attData||[]).forEach(function(p){ (p.emails||[]).forEach(function(e){ e=(e||'').trim(); if(!e) return; var k=e.toLowerCase(); if(seen[k]) return; seen[k]=1; out.push((p.officer? (p.officer+' <'+e+'>') : e)); }); }); return out; }
+  function openCon(){ document.getElementById('coHdr').textContent=hdrText(); var em=contactEmails(); document.getElementById('coText').value = em.length ? em.join('; ') : '(Δεν βρέθηκαν διευθύνσεις email στο παρουσιολόγιο.)'; document.getElementById('coMsg').textContent=''; modal('mCon').show(); }
+  document.getElementById('coCopy').addEventListener('click', function(){ var ta=document.getElementById('coText'); ta.select(); try{ document.execCommand('copy'); document.getElementById('coMsg').textContent='Αντιγράφηκε ✓'; }catch(e){} });
+  document.getElementById('coSave').addEventListener('click', function(){
+    var emails=contactEmails();
+    post(SAVE_DOC, {type:'contacts', id:wiz.conId, activity_id:wiz.id, title:wiz.title, date:wiz.date, officer:wiz.officer, data:{emails:emails, text:document.getElementById('coText').value}}).then(function(j){
+      if(!j||!j.ok){ alert('Σφάλμα.'); return; }
+      wiz.conId=j.id; setC('cCon','done'); modal('mCon').hide();
+      var msg=document.getElementById('wizMsg');
+      msg.innerHTML='Η δημιουργία της δραστηριότητας με κωδικό <strong>'+esc(wiz.code)+'</strong> και τίτλο «<strong>'+esc(wiz.title)+'</strong>» ολοκληρώθηκε. <button type="button" class="btn btn-success btn-sm ms-2" id="wizOk">OK</button>';
+      msg.style.display='';
+      document.getElementById('wizOk').addEventListener('click', function(){ window.location.href=BACK; });
+    });
+  });
+  document.getElementById('coPrint').addEventListener('click', function(){ var em=contactEmails(); var inner='<p style="font-size:0.95rem"><strong>Λίστα Ηλεκτρονικής Επικοινωνίας</strong></p><p style="font-size:0.9rem">'+esc(em.join('; '))+'</p>'; printDoc(wiz.title||'Λίστα Επικοινωνίας', inner); });
+})();
+</script>
+{% endblock %}

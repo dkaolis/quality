@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Αποκλίσεις / Μη Συμμορφώσεις από Εσωτερικές Επιθεωρήσεις{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-exclamation-triangle"></i> Αποκλίσεις / Μη Συμμορφώσεις από Εσωτερικές Επιθεωρήσεις</h2>
+    <div class="text-muted" style="font-size:0.85rem">Αποκλίσεις κριτηρίων (Qmentum) και μη συμμορφώσεις (ISO) από τις εσωτερικές επιθεωρήσεις, με παρακολούθηση αποκατάστασης. Ταξινόμηση: παλαιότερη ημερομηνία αποκατάστασης (Χρονοδιάγραμμα) πρώτη.</div>
+</div>
+
+<form method="get" class="mb-3 d-flex gap-2 align-items-center flex-wrap">
+  <label class="form-label mb-0 fw-bold"><i class="bi bi-funnel"></i> Τμήμα / Κλινική:</label>
+  <select name="dept" class="form-select form-select-sm" style="max-width:320px" onchange="this.form.submit()">
+    <option value="">— Όλα τα τμήματα —</option>
+    {% for dp in depts %}
+    <option value="{{ dp }}" {% if dp == sel_dept %}selected{% endif %}>{{ dp }}</option>
+    {% endfor %}
+  </select>
+  {% if sel_dept %}<a href="{{ url_for('flag_deviations') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i> Επαναφορά Όλων</a>{% endif %}
+  <span class="text-muted" style="font-size:0.82rem">({{ devs|length }} ευρήματα)</span>
+</form>
+
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md">
+    <div class="card h-100"><div class="card-body py-2 text-center">
+      <div class="text-muted" style="font-size:0.78rem">Ολικός αριθμός</div>
+      <div class="fw-bold" style="font-size:1.5rem">{{ stats.total }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card h-100" style="background:#d1e7dd"><div class="card-body py-2 text-center">
+      <div class="text-muted" style="font-size:0.78rem">Αποκατασταθείσες</div>
+      <div class="fw-bold" style="font-size:1.5rem">{{ stats.remediated }}</div>
+      <div style="font-size:0.8rem">{{ stats.remediated_pct }}%</div>
+      <div class="text-muted" style="font-size:0.7rem; border-top:1px solid rgba(0,0,0,0.1); margin-top:3px; padding-top:3px">εκτός προθεσμίας: {{ stats.remediated_late }} ({{ stats.remediated_late_pct }}%)</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card h-100" style="background:#fff3cd"><div class="card-body py-2 text-center">
+      <div class="text-muted" style="font-size:0.78rem">Εκκρεμούσες</div>
+      <div class="fw-bold" style="font-size:1.5rem">{{ stats.pending }}</div>
+      <div style="font-size:0.8rem">{{ stats.pending_pct }}%</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card h-100" style="background:#f8d7da"><div class="card-body py-2 text-center">
+      <div class="text-muted" style="font-size:0.78rem">Εκτός προθεσμίας (εκκρεμείς)</div>
+      <div class="fw-bold" style="font-size:1.5rem">{{ stats.overdue }}</div>
+      <div style="font-size:0.8rem">{{ stats.overdue_pct }}%</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if devs %}
+    <div class="table-responsive">
+      <table id="devTable" class="table table-bordered mb-0 align-middle" style="font-size:0.84rem">
+        <thead class="table-light"><tr>
+          <th class="sortable" data-col="0" data-type="date" style="cursor:pointer; white-space:nowrap">Χρονοδιάγραμμα <i class="bi bi-arrow-down-up" style="font-size:0.7rem; opacity:0.5"></i></th><th class="sortable" data-col="1" data-type="date" style="cursor:pointer; white-space:nowrap">Ημ. Επιθεώρησης <i class="bi bi-arrow-down-up" style="font-size:0.7rem; opacity:0.5"></i></th><th class="sortable" data-col="2" data-type="text" style="cursor:pointer; white-space:nowrap">Τμήμα <i class="bi bi-arrow-down-up" style="font-size:0.7rem; opacity:0.5"></i></th>
+          <th>Διαδικασία / ROP</th><th>Κριτήριο</th><th>Διορθωτική Ενέργεια</th>
+          <th class="text-center">Αποκατάσταση</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% for d in devs %}
+        <tr style="--bs-table-bg:{% if d.state=='done' %}#d1e7dd{% elif d.state=='overdue' %}#f8d7da{% else %}#fff3cd{% endif %}">
+          <td>{% if d.target_date %}{{ d.target_date.strftime('%d/%m/%Y') }}{% elif d.target %}{{ d.target }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td>{% if d.insp_date_date %}{{ d.insp_date_date.strftime('%d/%m/%Y') }}{% elif d.insp_date %}{{ d.insp_date }}{% else %}—{% endif %}</td>
+          <td>{{ d.dept or '—' }}
+            <a href="{{ url_for('checklist_fill', inst_id=d.instance_id) }}" target="_blank" class="text-muted ms-1" title="Άνοιγμα επιθεώρησης-πηγής"><i class="bi bi-box-arrow-up-right"></i></a>
+          </td>
+          <td>{{ d.proc or '—' }}</td>
+          <td>{{ d.criterion }}</td>
+          <td style="font-size:0.8rem">{{ d.corr or '—' }}</td>
+          <td class="text-center">
+            {% if d.state == 'done' %}
+              <i class="bi bi-check-circle-fill" style="color:#198754"></i>
+              <div style="font-size:0.72rem" class="text-muted">
+                {% if d.rem_date_disp %}{{ d.rem_date_disp.strftime('%d/%m/%Y') }}{% elif d.rem.remediated_date %}{{ d.rem.remediated_date }}{% endif %}
+                {% if d.rem.officer %}<br>{{ d.rem.officer }}{% endif %}
+              </div>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-nowrap">
+            <a href="{{ url_for('flag_remediate', inst_id=d.instance_id, si=d.si, ci=d.ci) }}"
+               class="btn btn-sm {% if d.state == 'done' %}btn-outline-secondary{% else %}btn-primary{% endif %}">
+              <i class="bi bi-check2-square"></i> {% if d.state == 'done' %}Επεξεργασία{% else %}Αποκατάσταση {{ 'μη συμμόρφωσης' if d.dev_pct is none else 'απόκλισης' }}{% endif %}
+            </a>
+            {% if d.state == 'done' %}
+            <form method="post" action="{{ url_for('flag_remediate_undo', inst_id=d.instance_id, si=d.si, ci=d.ci) }}" style="display:inline" onsubmit="return confirm('Επαναφορά της {{ 'μη συμμόρφωσης' if d.dev_pct is none else 'απόκλισης' }} σε εκκρεμούσα; Θα διαγραφούν τα δεδομένα αποκατάστασης.');">
+              <button class="btn btn-sm btn-outline-danger"><i class="bi bi-arrow-counterclockwise"></i> Επαναφορά σε εκκρεμούσα</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-4 text-center text-muted">
+      <i class="bi bi-check-circle" style="font-size:2rem; color:#16a34a"></i>
+      <div class="mt-2">Δεν υπάρχουν καταχωρημένες αποκλίσεις / μη συμμορφώσεις από εσωτερικές επιθεωρήσεις.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function(){
+  var tbl=document.getElementById('devTable'); if(!tbl||!tbl.tBodies.length) return;
+  var tb=tbl.tBodies[0];
+  function val(row,col,type){
+    var cell=row.cells[col]; var t=(cell?cell.textContent:'').trim();
+    if(type==='date'){ var m=t.match(/(\d{2})\/(\d{2})\/(\d{4})/); return m? (m[3]+m[2]+m[1]) : ''; }
+    return t.toLowerCase();
+  }
+  tbl.querySelectorAll('th.sortable').forEach(function(th){
+    th.addEventListener('click', function(){
+      var col=+th.getAttribute('data-col'), type=th.getAttribute('data-type');
+      var dir=th.getAttribute('data-dir')==='asc'?'desc':'asc';
+      tbl.querySelectorAll('th.sortable').forEach(function(o){o.removeAttribute('data-dir');});
+      th.setAttribute('data-dir',dir);
+      var rows=[].slice.call(tb.rows);
+      rows.sort(function(a,b){
+        var va=val(a,col,type), vb=val(b,col,type);
+        var ea=(va===''), eb=(vb==='');
+        if(ea&&!eb) return 1; if(eb&&!ea) return -1;
+        if(va<vb) return dir==='asc'?-1:1;
+        if(va>vb) return dir==='asc'?1:-1;
+        return 0;
+      });
+      rows.forEach(function(r){tb.appendChild(r);});
+    });
+  });
+})();
+</script>
+{% endblock %}

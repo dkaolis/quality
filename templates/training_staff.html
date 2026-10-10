@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Κατάλογος Εκπαιδεύσεων Προσωπικού{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-mortarboard"></i> Κατάλογος Εκπαιδεύσεων Προσωπικού</h2>
+  <div class="text-muted">Επίλεξε μέλος προσωπικού για να δεις/καταχωρήσεις εκπαιδεύσεις</div>
+</div>
+{% set named = staff|selectattr('person_name')|list %}
+{% if named %}
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Όνομα</th><th>Ιδιότητα</th><th>Ιδιότητα στη Μονάδα</th><th class="text-center" style="width:130px">Εκπαιδεύσεις</th></tr></thead>
+  <tbody>
+  {% for s in staff %}{% if s.person_name %}
+  <tr style="cursor:pointer" onclick="window.location='{{ url_for('training_staff_person', node_id=s.id) }}'">
+    <td class="fw-semibold">{{ s.person_name }}</td>
+    <td>{{ s.person_title or '—' }}</td>
+    <td>{{ s.unit_role }}</td>
+    <td class="text-center"><span class="badge bg-secondary">{{ s.ntrain }}</span></td>
+  </tr>
+  {% endif %}{% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body text-muted">Δεν υπάρχουν καταχωρημένα ονόματα προσωπικού. Συμπλήρωσε πρώτα το <a href="{{ url_for('quality_unit_orgchart') }}">Οργανόγραμμα</a>.</div></div>
+{% endif %}
+{% endblock %}

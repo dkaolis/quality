@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Προγραμματισμένες Εκπαιδεύσεις{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h2><i class="bi bi-calendar-check"></i> Προγραμματισμένες Εκπαιδεύσεις</h2>
+  <div class="text-muted">Μονάδα Διασφάλισης Ποιότητας</div></div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('training_scheduled_calendar') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-calendar3"></i> Ημερολόγιο</a>
+    {% if can_edit %}<a href="{{ url_for('training_scheduled_new') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-circle"></i> Νέα Εκπαίδευση</a>{% endif %}
+  </div>
+</div>
+{% if rows %}
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover align-middle mb-0" style="font-size:0.9rem">
+  <thead class="table-light"><tr>
+    <th>Εκπαιδευόμενος</th><th>Ιδιότητα στη Μονάδα</th><th style="width:120px">Έναρξη</th><th style="width:120px">Λήξη</th><th>Τίτλος</th><th>Φορέας</th>
+    {% if can_edit %}<th style="width:250px"></th>{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td class="fw-semibold">{{ r.person_name or '—' }}</td>
+    <td>{{ r.unit_role }}</td>
+    <td>{{ r.start_date or '—' }}</td>
+    <td>{{ r.end_date or '—' }}</td>
+    <td>{{ r.title or '—' }}</td>
+    <td>{{ r.provider or '—' }}</td>
+    {% if can_edit %}<td class="text-end" style="white-space:nowrap">
+      <a href="{{ url_for('training_staff_new', from_sched=r.id) }}" class="btn btn-success btn-sm" title="Καταχώρηση ως ολοκληρωμένη εκπαίδευση"><i class="bi bi-check2-circle"></i> Ολοκλήρωση Εκπαίδευσης</a>
+      <a href="{{ url_for('training_scheduled_edit', rec_id=r.id) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i></a>
+      <form method="post" action="{{ url_for('training_scheduled_delete', rec_id=r.id) }}" style="display:inline" onsubmit="return confirm('Διαγραφή προγραμματισμένης εκπαίδευσης;');"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Διαγραφή</button></form>
+    </td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body text-muted">Δεν υπάρχουν προγραμματισμένες εκπαιδεύσεις.{% if can_edit %} Πάτησε «Νέα Εκπαίδευση».{% endif %}</div></div>
+{% endif %}
+{% endblock %}

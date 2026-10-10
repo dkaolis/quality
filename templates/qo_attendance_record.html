@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>Καταγραφή Παρουσιών — {{ doc.title or 'Παρουσιολόγιο' }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@page{size:A4;margin:14mm}
+body{font-family:Arial,sans-serif;color:#000;padding:18px;max-width:1550px;margin:0 auto}
+table{border-collapse:collapse;width:100%;font-size:0.88rem;margin-top:8px}
+th,td{border:1px solid #999;padding:6px;vertical-align:top}
+th{background:#eee;text-align:left}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:6px}
+.btn{padding:8px 14px;border:0;border-radius:6px;cursor:pointer;font-size:0.9rem}
+.btn-save{background:#6f42c1;color:#fff}.btn-print{background:#e2e8f0}
+.esign{margin-top:16px;color:#16a34a;font-weight:600}
+input[type=password]{padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+.chk{transform:scale(1.4)}
+.cols{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.col{flex:1 1 380px;min-width:300px}
+.col-scan{flex:3 1 680px}
+.col-table{flex:1 1 300px;max-width:440px}
+.scanbox{border:1px solid #ccc;border-radius:6px;width:100%;height:860px}
+.panel{border:1px solid #e2e8f0;border-radius:8px;padding:10px;background:#f8fafc}
+@media print{.noprint{display:none}}
+</style></head>
+<body>
+<div class="hdr">
+  <img src="{{ url_for('static', filename='img/logo_okypy.png') }}" style="height:58px">
+  <div style="text-align:center"><div style="font-size:1.3rem;font-weight:bold">Καταγραφή Παρουσιών</div>
+    <div>{{ doc.title or 'Παρουσιολόγιο' }} — Γενικό Νοσοκομείο Λευκωσίας</div><div>Ημερομηνία: {{ datef }}</div></div>
+  <img src="{{ url_for('static', filename='img/logo_audit.png') }}" style="height:58px">
+</div>
+<div style="text-align:center;color:#555;font-size:0.78rem;margin-bottom:10px">Accreditation Canada - Platinum</div>
+
+{% if doc.esign_at %}
+<div class="cols">
+  <div class="col col-scan noprint">
+    <div style="font-weight:600;margin-bottom:6px">Σκαναρισμένο παρουσιολόγιο</div>
+    {% if signed_url %}<iframe src="{{ signed_url }}#zoom=page-width" class="scanbox"></iframe><div style="margin-top:4px"><a href="{{ signed_url }}" target="_blank">Άνοιγμα σε νέα καρτέλα</a></div>
+    {% else %}<div style="color:#64748b">—</div>{% endif %}
+  </div>
+  <div class="col col-table">
+    <table><thead><tr><th>Κλινική / Τμήμα</th><th>Συμμετέχων</th><th style="width:110px;text-align:center">Παρουσία</th></tr></thead>
+    <tbody>{% for it in items %}<tr><td><strong>{{ it.clinic }}</strong></td><td>{{ it.officer or '—' }}</td><td style="text-align:center">{{ 'ΠΑΡΩΝ' if it.present else 'ΑΠΩΝ' }}</td></tr>{% endfor %}</tbody></table>
+    <div style="margin-top:14px">Υπεύθυνος: <strong>{{ doc.officer_name or '' }}</strong></div>
+    <div class="esign"><i>✓</i> Υπογράφηκε ηλεκτρονικά από <strong>{{ doc.esign_by }}</strong> στις {{ doc.esign_at }}</div>
+  </div>
+</div>
+{% else %}
+<p class="noprint" style="font-size:0.9rem;color:#475569">Δες το σκαναρισμένο αριστερά και σημείωσε την <strong>παρουσία</strong> ανά κλινική/τμήμα· ολοκλήρωσε με ηλεκτρονική υπογραφή.</p>
+<div class="cols">
+  <div class="col col-scan noprint">
+    <div style="font-weight:600;margin-bottom:6px">Σκαναρισμένο παρουσιολόγιο</div>
+    {% if signed_url %}
+      <iframe src="{{ signed_url }}#zoom=page-width" class="scanbox"></iframe>
+      <div style="margin-top:4px"><a href="{{ signed_url }}" target="_blank">Άνοιγμα σε νέα καρτέλα</a></div>
+    {% else %}
+      <div class="panel" style="color:#c00">Δεν έχει ανέβει σκαναρισμένο ακόμη — ανέβασέ το για να το βλέπεις εδώ.</div>
+    {% endif %}
+    <form method="post" action="{{ upload_url }}" enctype="multipart/form-data" style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <input type="file" name="signed" accept=".pdf,.doc,.docx,.xls,.xlsx" required style="max-width:220px">
+      <button type="submit" class="btn btn-print">{{ 'Αντικατάσταση' if signed_url else 'Ανέβασμα' }}</button>
+    </form>
+  </div>
+  <div class="col col-table">
+    <table><thead><tr><th>Κλινική / Τμήμα</th><th>Συμμετέχων</th><th style="width:90px;text-align:center">Παρών</th></tr></thead>
+    <tbody id="rows">
+    {% for it in items %}
+    <tr data-i="{{ loop.index0 }}"><td><strong>{{ it.clinic }}</strong></td><td>{{ it.officer or '—' }}</td><td style="text-align:center"><input type="checkbox" class="chk pres"{% if it.present %} checked{% endif %}></td></tr>
+    {% endfor %}
+    </tbody></table>
+    <div class="noprint" style="margin-top:8px"><button type="button" id="all" class="btn btn-print">Επιλογή Όλων</button> <button type="button" id="none" class="btn btn-print">Καμία</button></div>
+    <div style="margin-top:12px">Υπεύθυνος: <strong>{{ doc.officer_name or '—' }}</strong></div>
+    <div class="noprint" style="margin-top:14px;border-top:1px solid #ddd;padding-top:12px">
+      <div style="font-size:0.88rem;margin-bottom:6px">Ηλεκτρονική υπογραφή υπευθύνου — κωδικός:</div>
+      <input type="password" id="pw" placeholder="Κωδικός υπευθύνου" autocomplete="off">
+      <button type="button" id="save" class="btn btn-save">Καταχώρηση &amp; Υπογραφή</button>
+      <span id="msg" style="margin-left:8px;font-weight:600"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+var SAVE="{{ save_url }}";
+document.getElementById('all').addEventListener('click', function(){ [].slice.call(document.querySelectorAll('.pres')).forEach(function(c){c.checked=true;}); });
+document.getElementById('none').addEventListener('click', function(){ [].slice.call(document.querySelectorAll('.pres')).forEach(function(c){c.checked=false;}); });
+document.getElementById('save').addEventListener('click', function(){
+  var rows=[].slice.call(document.querySelectorAll('#rows tr'));
+  var present=rows.map(function(tr){ return tr.querySelector('.pres').checked; });
+  var X=present.filter(Boolean).length, Y=rows.length;
+  if(!confirm('Θα καταχωρηθούν '+X+' παρουσίες από '+Y+' προσκλήσεις. Συνέχεια;')) return;
+  var pw=document.getElementById('pw').value||''; if(!pw){ alert('Εισάγετε τον κωδικό.'); return; }
+  var btn=this; btn.disabled=true; var m=document.getElementById('msg'); m.style.color='#475569'; m.textContent='…';
+  fetch(SAVE,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({present:present,password:pw})})
+    .then(function(r){return r.json();}).then(function(j){
+      btn.disabled=false;
+      if(j&&j.ok){ m.style.color='#16a34a'; m.textContent='Καταχωρήθηκαν '+j.present+'/'+j.total+' ✓'; setTimeout(function(){ location.reload(); }, 800); }
+      else { m.style.color='#c00'; m.textContent=(j&&j.message)||'Σφάλμα'; }
+    }).catch(function(){ btn.disabled=false; m.style.color='#c00'; m.textContent='Σφάλμα επικοινωνίας'; });
+});
+</script>
+{% endif %}
+</body></html>

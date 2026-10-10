@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>{{ doc.title or 'Ατζέντα' }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@page{size:A4;margin:14mm}
+body{font-family:Arial,sans-serif;color:#000;padding:18px;max-width:900px;margin:0 auto}
+table{border-collapse:collapse;width:100%;font-size:0.9rem;margin-top:8px}
+th,td{border:1px solid #999;padding:6px;vertical-align:top}
+th{background:#eee;text-align:left}
+textarea{width:100%;border:1px solid #cbd5e1;border-radius:4px;font:inherit;padding:4px;min-height:48px;box-sizing:border-box}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:6px}
+.btn{padding:7px 14px;border:0;border-radius:6px;cursor:pointer;font-size:0.9rem}
+.btn-save{background:#16a34a;color:#fff}.btn-print{background:#e2e8f0}.btn-add{background:#0d6efd;color:#fff}.btn-sign{background:#6f42c1;color:#fff}
+.esign{margin-top:16px;color:#16a34a;font-weight:600}
+input[type=password]{padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+@media print{.noprint{display:none}}
+</style></head>
+<body>
+<div class="noprint" style="margin-bottom:10px"><button type="button" class="btn btn-print" onclick="if(history.length>1){history.back()}else{location.href='{{ back_url }}'}">&#8592; Πίσω</button></div>
+<div class="hdr">
+  <img src="{{ url_for('static', filename='img/logo_okypy.png') }}" style="height:58px">
+  <div style="text-align:center"><div style="font-size:1.3rem;font-weight:bold">{{ doc.title or 'Ατζέντα' }}</div>
+    <div>Γενικό Νοσοκομείο Λευκωσίας</div><div>Ημερομηνία: {{ datef }}</div></div>
+  <img src="{{ url_for('static', filename='img/logo_audit.png') }}" style="height:58px">
+</div>
+<div style="text-align:center;color:#555;font-size:0.78rem;margin-bottom:10px">Accreditation Canada - Platinum</div>
+
+{% if doc.esign_at %}
+<table><thead><tr><th style="width:50%">Θέματα</th><th style="width:50%">Απορρέοντα</th></tr></thead>
+<tbody>
+{% for it in items %}<tr><td>{{ it.topic or '' }}</td><td>{{ it.outcome or '' }}</td></tr>{% endfor %}
+</tbody></table>
+<div style="margin-top:18px">Υπεύθυνος: <strong>{{ doc.officer_name or '' }}</strong></div>
+<div class="esign"><i>✓</i> Υπογράφηκε ηλεκτρονικά από <strong>{{ doc.esign_by }}</strong> στις {{ doc.esign_at }}</div>
+{% else %}
+<table><thead><tr><th style="width:46%">Θέματα</th><th style="width:46%">Απορρέοντα</th><th class="noprint" style="width:8%"></th></tr></thead>
+<tbody id="rows">
+{% for it in items %}
+<tr><td><textarea class="t">{{ it.topic or '' }}</textarea></td><td><textarea class="o">{{ it.outcome or '' }}</textarea></td><td class="noprint" style="text-align:center"><a class="del" style="cursor:pointer;color:#c00;font-weight:bold">✕</a></td></tr>
+{% endfor %}
+</tbody></table>
+<button type="button" id="add" class="btn btn-add noprint" style="margin-top:8px">+ Θέμα</button>
+
+<div style="margin-top:18px">Υπεύθυνος: <strong>{{ doc.officer_name or '' }}</strong></div>
+
+<div class="noprint" style="margin-top:20px">
+  <button type="button" id="save" class="btn btn-save">Αποθήκευση</button>
+  <button type="button" class="btn btn-print" onclick="window.print()">Εκτύπωση</button>
+  <span id="msg" style="color:#16a34a;margin-left:10px;font-weight:600"></span>
+</div>
+
+<div class="noprint" style="margin-top:16px;border-top:1px solid #ddd;padding-top:12px">
+  <div style="font-size:0.88rem;margin-bottom:6px">Ηλεκτρονική υπογραφή υπευθύνου (<strong>{{ doc.officer_name or '—' }}</strong>) — όταν ολοκληρωθούν όλα τα απορρέοντα:</div>
+  <input type="password" id="pw" placeholder="Κωδικός υπευθύνου" autocomplete="off">
+  <button type="button" id="sign" class="btn btn-sign"><span style="font-weight:bold">✔</span> Υπογραφή</button>
+  <span id="smsg" style="margin-left:10px;font-weight:600"></span>
+</div>
+
+<script>
+var SAVE="{{ save_url }}", SIGN="{{ sign_url }}", DID={{ doc.id }}, AID={{ doc.activity_id if doc.activity_id else 'null' }};
+var TITLE={{ (doc.title or '')|tojson }}, DATE={{ (doc.doc_date or '')|tojson }}, OFF={{ (doc.officer_name or '')|tojson }};
+function wire(a){ a.addEventListener('click', function(){ var tr=a.closest('tr'); if(tr) tr.remove(); }); }
+[].slice.call(document.querySelectorAll('#rows .del')).forEach(wire);
+document.getElementById('add').addEventListener('click', function(){
+  var tb=document.getElementById('rows'); var tr=document.createElement('tr');
+  tr.innerHTML='<td><textarea class="t"></textarea></td><td><textarea class="o"></textarea></td><td class="noprint" style="text-align:center"><a class="del" style="cursor:pointer;color:#c00;font-weight:bold">✕</a></td>';
+  tb.appendChild(tr); wire(tr.querySelector('.del'));
+});
+function collect(){ var items=[]; [].slice.call(document.querySelectorAll('#rows tr')).forEach(function(tr){ var t=(tr.querySelector('.t').value||'').trim(); var o=(tr.querySelector('.o').value||'').trim(); if(t||o) items.push({topic:t, outcome:o}); }); return items; }
+function saveItems(){ return fetch(SAVE,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({type:'agenda',id:DID,activity_id:AID,title:TITLE,date:DATE,officer:OFF,data:collect()})}).then(function(r){return r.json();}); }
+document.getElementById('save').addEventListener('click', function(){
+  var btn=this; btn.disabled=true;
+  saveItems().then(function(j){ btn.disabled=false; document.getElementById('msg').textContent=(j&&j.ok)?'Αποθηκεύτηκε ✓':'Σφάλμα'; }).catch(function(){ btn.disabled=false; document.getElementById('msg').textContent='Σφάλμα'; });
+});
+document.getElementById('sign').addEventListener('click', function(){
+  var items=collect();
+  if(!items.length){ alert('Δεν υπάρχουν θέματα.'); return; }
+  if(!items.every(function(it){ return (it.outcome||'').trim(); })){ alert('Πρέπει να συμπληρωθούν όλα τα απορρέοντα πριν την υπογραφή.'); return; }
+  var pw=document.getElementById('pw').value||''; if(!pw){ alert('Εισάγετε τον κωδικό.'); return; }
+  var btn=this; btn.disabled=true; var sm=document.getElementById('smsg'); sm.textContent='…';
+  saveItems().then(function(){ return fetch(SIGN,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({password:pw})}).then(function(r){return r.json();}); })
+    .then(function(j){ btn.disabled=false; if(j&&j.ok){ sm.style.color='#16a34a'; sm.textContent='Υπογράφηκε ✓'; setTimeout(function(){ location.reload(); }, 700); } else { sm.style.color='#c00'; sm.textContent=(j&&j.message)||'Σφάλμα'; } })
+    .catch(function(){ btn.disabled=false; sm.style.color='#c00'; sm.textContent='Σφάλμα επικοινωνίας'; });
+});
+</script>
+{% endif %}
+</body></html>

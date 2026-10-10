@@ -25,12 +25,9 @@
                            value="{{ ins.inspection_date|fmtdate if ins else today }}">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Τύπος επιθεώρησης</label>
-                    <select name="itype" class="form-select">
-                        {% for t in types %}
-                        <option value="{{ t }}" {% if ins and ins.itype == t %}selected{% endif %}>{{ t }}</option>
-                        {% endfor %}
-                    </select>
+                    <label class="form-label">Κατηγορία</label>
+                    <input type="text" class="form-control" value="Εσωτερικές Επιθεωρήσεις {{ category }}" readonly>
+                    <input type="hidden" name="category" value="{{ category }}">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Φορέας επιθεώρησης</label>
@@ -62,11 +59,21 @@
                            value="{{ ins.score|fmtnum if ins and ins.score is not none else '' }}">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Κατάσταση</label>
+                    <label class="form-label">Κατάσταση <small class="text-muted">(αν δεν συνδεθεί audit tool)</small></label>
                     <select name="status" class="form-select">
                         <option value="open" {% if ins and ins.status == 'open' %}selected{% endif %}>Ανοικτή</option>
                         <option value="closed" {% if ins and ins.status == 'closed' %}selected{% endif %}>Κλεισμένη</option>
                     </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Συνδεδεμένη Λίστα Ελέγχου (audit tool)</label>
+                    <select name="instance_id" class="form-select">
+                        <option value="">— Καμία —</option>
+                        {% for it in instances %}
+                        <option value="{{ it.id }}" {% if ins and ins.instance_id == it.id %}selected{% endif %}>[{{ it.code }}] {{ it.title }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Αν συνδεθεί, η ΚΑΤΑΣΤΑΣΗ υπολογίζεται αυτόματα (Κλειστή/Ανοικτή) από τις αποκαταστάσεις των αποκλίσεων.</div>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Σύνοψη ευρημάτων</label>

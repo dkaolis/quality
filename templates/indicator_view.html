@@ -11,11 +11,9 @@
         </div>
     </div>
     <div>
-        {% if session.role in ('admin', 'central') %}
         <a href="{{ url_for('indicator_edit', ind_id=ind.id) }}" class="btn btn-outline-secondary btn-action">
             <i class="bi bi-pencil"></i> Επεξεργασία
         </a>
-        {% endif %}
         <a href="{{ url_for('compare_view', indicator=ind.id, year=year) }}" class="btn btn-outline-primary btn-action">
             <i class="bi bi-graph-up-arrow"></i> Σύγκριση
         </a>

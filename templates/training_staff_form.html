@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{% if rec %}Επεξεργασία Εκπαίδευσης{% else %}Νέα Εκπαίδευση{% endif %}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h2><i class="bi bi-mortarboard"></i> {% if rec %}Επεξεργασία Εκπαίδευσης{% else %}Νέα Εκπαίδευση{% endif %}</h2>
+  <div class="text-muted">Εκπαίδευση Προσωπικού</div></div>
+  <a href="{{ url_for('training_staff') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul"></i> Κατάλογος</a>
+</div>
+{% set named = staff|selectattr('person_name')|list %}
+{% if not named %}<div class="alert alert-warning">Δεν υπάρχουν καταχωρημένα ονόματα προσωπικού. Συμπλήρωσε πρώτα το <a href="{{ url_for('quality_unit_orgchart') }}">Οργανόγραμμα</a>.</div>{% endif %}
+<form method="post" action="{{ url_for('training_staff_edit', rec_id=rec.id) if rec else url_for('training_staff_new') }}" enctype="multipart/form-data">
+  <input type="hidden" name="from_sched" value="{{ from_sched or '' }}">
+  <div class="card mb-3"><div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label">Προσωπικό <span class="text-danger">*</span></label>
+        <select name="node_id" class="form-select" required>
+          <option value="">— Επιλογή —</option>
+          {% for s in staff %}{% if s.person_name %}<option value="{{ s.id }}" {% if (rec and rec.node_id==s.id) or (sel_node and sel_node==s.id) %}selected{% endif %}>{{ s.person_name }} — {{ s.unit_role }}</option>{% endif %}{% endfor %}
+        </select></div>
+      <div class="col-md-3"><label class="form-label">Ημ. Έναρξης</label>
+        <input type="date" name="start_date" class="form-control" value="{{ rec.start_date if rec else (prefill.start_date if prefill else '') }}"></div>
+      <div class="col-md-3"><label class="form-label">Ημ. Λήξης</label>
+        <input type="date" name="end_date" class="form-control" value="{{ rec.end_date if rec else (prefill.end_date if prefill else '') }}"></div>
+      <div class="col-md-3"><label class="form-label">Έτος</label>
+        <input type="number" name="year" class="form-control" min="1990" max="2100" value="{{ rec.year if rec and rec.year else (prefill.year if prefill and prefill.year else '') }}"></div>
+      <div class="col-md-9"><label class="form-label">Φορέας</label>
+        <input name="provider" class="form-control" value="{{ rec.provider if rec else (prefill.provider if prefill else '') }}"></div>
+      <div class="col-12"><label class="form-label">Τίτλος εκπαίδευσης</label>
+        <input name="title" class="form-control" value="{{ rec.title if rec else (prefill.title if prefill else '') }}"></div>
+    </div>
+  </div></div>
+  <div class="card mb-3"><div class="card-body">
+    <label class="form-label"><i class="bi bi-award"></i> Δίπλωμα (εικόνα ή PDF)</label>
+    <input type="file" id="dip" name="diploma" class="form-control" accept="image/*,application/pdf">
+    <div class="form-text">Τα PDF μετατρέπονται αυτόματα σε εικόνα. Μετά μπορείς να την περιστρέψεις· η περιστροφή αποθηκεύεται.</div>
+    <div id="dipStatus" class="mt-2" style="display:none"></div>
+    <div id="dipArea" class="mt-3" style="display:none">
+      <div class="mb-2 d-flex gap-2">
+        <button type="button" id="rotL" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Περιστροφή αριστερά</button>
+        <button type="button" id="rotR" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise"></i> Περιστροφή δεξιά</button>
+      </div>
+      <img id="dipImg" alt="Δίπλωμα" style="max-height:360px; max-width:100%; border:1px solid #dee2e6; border-radius:8px; background:#fff">
+    </div>
+    <div id="dipPdf" class="mt-3" style="display:none"></div>
+  </div></div>
+  <button class="btn btn-success"><i class="bi bi-check2-circle"></i> Αποθήκευση</button>
+  <a href="{{ url_for('training_staff') }}" class="btn btn-outline-secondary">Άκυρο</a>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+(function(){
+  var input=document.getElementById('dip');
+  var area=document.getElementById('dipArea');
+  var imgEl=document.getElementById('dipImg');
+  var pdfEl=document.getElementById('dipPdf');
+  var statusEl=document.getElementById('dipStatus');
+  var rotL=document.getElementById('rotL'), rotR=document.getElementById('rotR');
+  var srcImg=null, angle=0, dirty=false, baseName='diploma.jpg';
+
+  function setInput(blob, name){
+    baseName=(name.replace(/\.[^.]+$/,'')||'diploma')+'.jpg';
+    try { var f=new File([blob], baseName, {type:'image/jpeg'}); var dt=new DataTransfer(); dt.items.add(f); input.files=dt.files; } catch(err){}
+  }
+  function render(){
+    if(!srcImg) return;
+    var w=srcImg.naturalWidth, h=srcImg.naturalHeight;
+    var canvas=document.createElement('canvas');
+    if(angle%180===0){ canvas.width=w; canvas.height=h; } else { canvas.width=h; canvas.height=w; }
+    var ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.rotate(angle*Math.PI/180);
+    ctx.drawImage(srcImg, -w/2, -h/2);
+    try { imgEl.src=canvas.toDataURL('image/jpeg', 0.92); } catch(err){ imgEl.src=srcImg.src; }
+    if(dirty){ try { canvas.toBlob(function(blob){ if(blob) setInput(blob, baseName); }, 'image/jpeg', 0.92); } catch(err){} }
+  }
+  function showImage(url, putInInput, name){
+    srcImg=new Image();
+    srcImg.onload=function(){
+      angle=0; dirty=false;
+      if(putInInput){ try{ var c=document.createElement('canvas'); c.width=srcImg.naturalWidth; c.height=srcImg.naturalHeight; c.getContext('2d').drawImage(srcImg,0,0); c.toBlob(function(b){ if(b) setInput(b, name||'diploma'); },'image/jpeg',0.92);}catch(e){} }
+      render(); area.style.display='';
+    };
+    srcImg.src=url;
+  }
+  function rotate(delta){ if(!srcImg) return; angle=(angle+delta+360)%360; dirty=true; render(); }
+  if(rotL) rotL.addEventListener('click', function(){ rotate(-90); });
+  if(rotR) rotR.addEventListener('click', function(){ rotate(90); });
+
+  function convertPdf(file){
+    if(!window.pdfjsLib){
+      pdfEl.innerHTML='<span class="badge bg-danger" style="font-size:0.85rem"><i class="bi bi-file-earmark-pdf"></i> '+file.name+' (θα ανέβει ως PDF)</span>';
+      pdfEl.style.display=''; return;
+    }
+    statusEl.innerHTML='<span class="text-muted"><span class="spinner-border spinner-border-sm"></span> Μετατροπή PDF σε εικόνα…</span>'; statusEl.style.display='';
+    file.arrayBuffer().then(function(buf){ return pdfjsLib.getDocument({data:buf}).promise; })
+    .then(function(pdf){ return pdf.getPage(1); })
+    .then(function(page){
+      var vp=page.getViewport({scale:2});
+      var canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
+      var ctx=canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      return page.render({canvasContext:ctx, viewport:vp}).promise.then(function(){ return canvas; });
+    })
+    .then(function(canvas){
+      canvas.toBlob(function(blob){
+        statusEl.style.display='none';
+        setInput(blob, (file.name||'diploma'));
+        var url=URL.createObjectURL(blob);
+        srcImg=new Image(); srcImg.onload=function(){ angle=0; dirty=false; render(); area.style.display=''; }; srcImg.src=url;
+      }, 'image/jpeg', 0.92);
+    })
+    .catch(function(err){
+      statusEl.style.display='none';
+      pdfEl.innerHTML='<span class="text-danger">Αποτυχία μετατροπής PDF — θα ανέβει ως PDF.</span>'; pdfEl.style.display='';
+    });
+  }
+
+  input.addEventListener('change', function(e){
+    pdfEl.style.display='none'; area.style.display='none'; statusEl.style.display='none';
+    srcImg=null; angle=0; dirty=false;
+    if(!e.target.files.length) return;
+    var file=e.target.files[0];
+    if(file.type==='application/pdf' || /\.pdf$/i.test(file.name)){ convertPdf(file); return; }
+    var url=URL.createObjectURL(file);
+    srcImg=new Image(); srcImg.onload=function(){ angle=0; dirty=false; render(); area.style.display=''; }; srcImg.src=url;
+  });
+
+  {% if rec and rec.diploma %}
+  (function(){
+    var existing="{{ url_for('training_staff_diploma', rec_id=rec.id) }}";
+    {% if rec.diploma.lower().endswith('.pdf') %}
+    pdfEl.innerHTML='<a href="'+existing+'" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Τρέχον δίπλωμα (PDF)</a>';
+    pdfEl.style.display='';
+    {% else %}
+    showImage(existing, false, 'diploma');
+    {% endif %}
+  })();
+  {% endif %}
+})();
+</script>
+{% endblock %}

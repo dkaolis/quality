@@ -5,6 +5,17 @@
     <h2><i class="bi bi-bell"></i> Επισημάνσεις</h2>
     <div class="text-muted" style="font-size:0.85rem">Δείκτες εκτός στόχου ή ορίων στην πιο πρόσφατη καταχωρημένη περίοδο κάθε νοσηλευτηρίου.</div>
 </div>
+<form method="get" class="mb-3 d-flex gap-2 align-items-center flex-wrap">
+  <label class="form-label mb-0 fw-bold"><i class="bi bi-funnel"></i> Τμήμα / Κλινική:</label>
+  <select name="grp" class="form-select form-select-sm" style="max-width:320px" onchange="this.form.submit()">
+    <option value="">— Όλα τα τμήματα —</option>
+    {% for g in grps %}
+    <option value="{{ g }}" {% if g == sel_grp %}selected{% endif %}>{{ g }}</option>
+    {% endfor %}
+  </select>
+  {% if sel_grp %}<a href="{{ url_for('alerts_list') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i> Επαναφορά Όλων</a>{% endif %}
+  <span class="text-muted" style="font-size:0.82rem">({{ alerts|length }} επισημάνσεις)</span>
+</form>
 <div class="card">
     <div class="card-body p-0">
         {% if alerts %}
@@ -15,7 +26,9 @@
                     <th>Περίοδος</th><th class="text-end">Τιμή</th><th>Στόχος / Όρια</th><th>Σχόλιο</th>
                 </tr></thead>
                 <tbody>
-                {% for a in alerts %}
+                {% for group in alerts|groupby('grp_label') %}
+                <tr class="table-secondary"><td colspan="8" class="fw-bold py-2"><i class="bi bi-diagram-3"></i> {{ group.grouper }} <span class="text-muted fw-normal">({{ group.list|length }})</span></td></tr>
+                {% for a in group.list %}
                 <tr class="{% if a.status == 'alert' %}table-danger{% else %}table-warning{% endif %}">
                     <td><span class="badge bg-{{ STATUS_META[a.status][0] }} badge-status">{{ STATUS_META[a.status][1] }}</span></td>
                     <td><a href="{{ url_for('indicator_view', ind_id=a.indicator_id) }}">{{ a.ind_code }}</a> {{ a.ind_name }}</td>
@@ -30,6 +43,7 @@
                     </td>
                     <td style="font-size:0.8rem">{{ a.comment or '' }}</td>
                 </tr>
+                {% endfor %}
                 {% endfor %}
                 </tbody>
             </table>

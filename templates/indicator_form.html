@@ -7,6 +7,7 @@
 <div class="card" style="max-width: 900px">
     <div class="card-body">
         <form method="post">
+            <fieldset {% if not (can_edit|default(true)) %}disabled{% endif %} class="border-0 p-0 m-0">
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Κωδικός *</label>
@@ -17,15 +18,19 @@
                     <input type="text" name="name" class="form-control" required value="{{ ind.name if ind else '' }}">
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label">Κατηγορία</label>
-                    <input type="text" name="category" class="form-control" list="cat-list"
-                           value="{{ ind.category if ind else 'Γενικοί' }}">
-                    <datalist id="cat-list">
-                        <option>Κλινική Ασφάλεια</option><option>Κλινική Αποτελεσματικότητα</option>
-                        <option>Έλεγχος Λοιμώξεων</option><option>Εμπειρία Ασθενή</option>
-                        <option>Πρόσβαση & Ροή Ασθενών</option><option>Χειρουργική Δραστηριότητα</option>
-                        <option>Τεκμηρίωση</option><option>Γενικοί</option>
-                    </datalist>
+                    <label class="form-label">Κατηγορία <small class="text-muted">(Κλινική / Τμήμα)</small></label>
+                    <select name="category" class="form-select">
+                        {% if force_cats %}
+                        {% for fc in force_cats %}<option value="{{ fc }}" {% if (not ind) or ind.category == fc %}selected{% endif %}>{{ fc }}</option>{% endfor %}
+                        {% else %}
+                        {% if ind and ind.category and ind.category not in dept_list %}
+                        <option value="{{ ind.category }}" selected>{{ ind.category }} (τρέχουσα)</option>
+                        {% endif %}
+                        {% for dn in dept_list %}
+                        <option value="{{ dn }}" {% if ind and ind.category == dn %}selected{% endif %}>{{ dn }}</option>
+                        {% endfor %}
+                        {% endif %}
+                    </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Μονάδα μέτρησης</label>
@@ -63,14 +68,6 @@
                     <input type="text" name="limit_high" class="form-control" inputmode="decimal"
                            value="{{ ind.limit_high|fmtnum if ind and ind.limit_high is not none else '' }}">
                 </div>
-                <div class="col-md-5">
-                    <label class="form-label">Ομάδα <small class="text-muted">(π.χ. ΤΑΕΠ Ενηλίκων — κενό = γενικός δείκτης)</small></label>
-                    <input type="text" name="grp" class="form-control" list="grp-list"
-                           value="{{ ind.grp if ind and ind.grp else '' }}">
-                    <datalist id="grp-list">
-                        <option>ΤΑΕΠ Ενηλίκων</option><option>ΤΑΕΠ Παίδων</option>
-                    </datalist>
-                </div>
                 <div class="col-md-3">
                     <label class="form-label">Μέγιστη Βαθμολογία <small class="text-muted">(για δείκτες με σκορ)</small></label>
                     <input type="text" name="max_score" class="form-control" inputmode="decimal"
@@ -92,9 +89,17 @@
                     </div>
                 </div>
             </div>
+            </fieldset>
+            {% if not (can_edit|default(true)) %}
+            <div class="alert alert-info py-2 mt-3" style="font-size:0.85rem"><i class="bi bi-eye"></i> Προβολή μόνο — δεν έχετε δικαίωμα τροποποίησης δεικτών.</div>
+            {% endif %}
             <div class="mt-4">
+                {% if can_edit|default(true) %}
                 <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
                 <a href="{{ url_for('indicators_list') }}" class="btn btn-outline-secondary">Ακύρωση</a>
+                {% else %}
+                <a href="{{ url_for('indicators_list') }}" class="btn btn-outline-secondary">← Πίσω στη λίστα</a>
+                {% endif %}
             </div>
         </form>
     </div>

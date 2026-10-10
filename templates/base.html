@@ -17,9 +17,9 @@
             display: flex; flex-direction: column; overflow-y: auto;
         }
         .sidebar .brand {
-            padding: 1rem 1.2rem 1.2rem; font-size: 1.2rem; font-weight: 700;
+            padding: 1rem 1.2rem 1.2rem; font-size: 0.95rem; font-weight: 700; line-height: 1.25;
             border-bottom: 1px solid rgba(255,255,255,0.08);
-            display: flex; align-items: center; gap: 0.5rem;
+            display: flex; align-items: flex-start; gap: 0.5rem;
         }
         .sidebar .brand i { color: var(--accent); font-size: 1.4rem; }
         .sidebar .brand small { display: block; font-size: 0.65rem; font-weight: 400; color: #5eead4;
@@ -107,13 +107,74 @@
         </div>
         <div class="hospital-name"><i class="bi bi-hospital"></i> Γενικό Νοσοκομείο Λευκωσίας</div>
         <div class="mt-1">
+            {% set qunit_active = request.endpoint in ('quality_unit_orgchart','org_node_update','work_scheduling','work_scheduling_week','task_entry','task_list') %}
+            <a href="#qunitMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if qunit_active else 'false' }}" aria-controls="qunitMenu"
+               class="nav-link nav-parent {% if not qunit_active %}collapsed{% endif %}{% if qunit_active %} active{% endif %}">
+                <i class="bi bi-diagram-3"></i> Μονάδα Διασφάλισης Ποιότητας
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
+            </a>
+            <div class="collapse {% if qunit_active %}show{% endif %}" id="qunitMenu">
+                <a href="{{ url_for('quality_unit_orgchart') }}" class="nav-link nav-sub {% if request.endpoint in ('quality_unit_orgchart','org_node_update') %}active{% endif %}">
+                    <i class="bi bi-diagram-3"></i> Οργανόγραμμα
+                </a>
+                {% set ws_active = request.endpoint in ('work_scheduling','work_scheduling_week','task_entry','task_list') %}
+                <a href="#wsMenu" data-bs-toggle="collapse" role="button"
+                   aria-expanded="{{ 'true' if ws_active else 'false' }}" aria-controls="wsMenu"
+                   class="nav-link nav-sub nav-parent {% if not ws_active %}collapsed{% endif %}{% if ws_active %} active{% endif %}">
+                    <i class="bi bi-calendar2-week"></i> Προγραμματισμός Εργασιών
+                    <i class="bi bi-chevron-down ms-auto nav-caret"></i>
+                </a>
+                <div class="collapse {% if ws_active %}show{% endif %}" id="wsMenu">
+                    <a href="{{ url_for('task_entry') }}" class="nav-link nav-sub2 {% if request.endpoint == 'task_entry' %}active{% endif %}">
+                        <i class="bi bi-pencil-square"></i> Καταχώρηση Εργασίας
+                    </a>
+                    <a href="{{ url_for('task_list') }}" class="nav-link nav-sub2 {% if request.endpoint == 'task_list' %}active{% endif %}">
+                        <i class="bi bi-list-ul"></i> Κατάλογος Εργασιών
+                    </a>
+                </div>
+            </div>
+            {% set trainp_active = request.endpoint in ('training_staff','training_staff_person','training_staff_new','training_staff_edit','quality_unit_training','training_scheduled','training_scheduled_calendar','training_scheduled_new','training_scheduled_edit') %}
+            <a href="#trainMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if trainp_active else 'false' }}" aria-controls="trainMenu"
+               class="nav-link nav-parent {% if not trainp_active %}collapsed{% endif %}{% if trainp_active %} active{% endif %}">
+                <i class="bi bi-mortarboard"></i> Εκπαίδευση Προσωπικού
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
+            </a>
+            <div class="collapse {% if trainp_active %}show{% endif %}" id="trainMenu">
+                <a href="{{ url_for('training_staff') }}" class="nav-link nav-sub {% if request.endpoint in ('training_staff','training_staff_person','training_staff_new','training_staff_edit') %}active{% endif %}">
+                    <i class="bi bi-people"></i> Κατάλογος Εκπαιδεύσεων Προσωπικού
+                </a>
+                <a href="{{ url_for('training_scheduled') }}" class="nav-link nav-sub {% if request.endpoint in ('training_scheduled','training_scheduled_calendar','training_scheduled_new','training_scheduled_edit') %}active{% endif %}">
+                    <i class="bi bi-calendar-check"></i> Προγραμματισμένες Εκπαιδεύσεις
+                </a>
+            </div>
             <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
-                <i class="bi bi-speedometer2"></i> Πίνακας Ελέγχου
+                <i class="bi bi-bell"></i> Ειδοποιήσεις
+                {% if notif_count %}<span class="badge ms-2 {{ 'bg-danger' if notif_danger else 'bg-warning text-dark' }}">{{ notif_count }}</span>{% endif %}
             </a>
-            <a href="{{ url_for('alerts_list') }}" class="nav-link {% if request.endpoint == 'alerts_list' %}active{% endif %}">
+            {% set flags_active = request.endpoint in ('alerts_list','flag_deviations','flag_remediate','flag_patient_safety') %}
+            <a href="#flagsMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if flags_active else 'false' }}" aria-controls="flagsMenu"
+               class="nav-link nav-parent {% if not flags_active %}collapsed{% endif %}{% if flags_active %} active{% endif %}">
                 <i class="bi bi-bell"></i> Επισημάνσεις
-                {% if alert_count %}<span class="badge bg-danger ms-auto">{{ alert_count }}</span>{% endif %}
+                {% set flags_total = alert_count + deviation_alert_count %}
+                {% if flags_total %}<span class="badge bg-danger ms-2">{{ flags_total }}</span>{% endif %}
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
             </a>
+            <div class="collapse {% if flags_active %}show{% endif %}" id="flagsMenu">
+                <a href="{{ url_for('alerts_list') }}" class="nav-link nav-sub {% if request.endpoint == 'alerts_list' %}active{% endif %}">
+                    <i class="bi bi-clipboard-data"></i> Δείκτες Ποιότητας
+                    {% if alert_count %}<span class="badge bg-danger ms-auto">{{ alert_count }}</span>{% endif %}
+                </a>
+                <a href="{{ url_for('flag_deviations') }}" class="nav-link nav-sub {% if request.endpoint in ('flag_deviations','flag_remediate') %}active{% endif %}">
+                    <i class="bi bi-exclamation-triangle"></i> Αποκλίσεις / Μη Συμμορφώσεις από Εσωτερικές Επιθεωρήσεις
+                    {% if deviation_alert_count %}<span class="badge bg-danger ms-auto">{{ deviation_alert_count }}</span>{% endif %}
+                </a>
+                <a href="{{ url_for('flag_patient_safety') }}" class="nav-link nav-sub {% if request.endpoint == 'flag_patient_safety' %}active{% endif %}">
+                    <i class="bi bi-heart-pulse"></i> Ασφάλεια Ασθενών
+                </a>
+            </div>
 
             {% set indicators_active = request.endpoint in ('values_entry','compare_view','indicators_list','indicator_new','indicator_edit','indicator_view') %}
             <a href="#indicatorsMenu" data-bs-toggle="collapse" role="button"
@@ -124,23 +185,9 @@
             </a>
             <div class="collapse {% if indicators_active %}show{% endif %}" id="indicatorsMenu">
                 {% set defs_active = request.endpoint in ('indicators_list','indicator_new','indicator_edit','indicator_view') %}
-                <a href="#defsMenu" data-bs-toggle="collapse" role="button"
-                   aria-expanded="{{ 'true' if defs_active else 'false' }}" aria-controls="defsMenu"
-                   class="nav-link nav-sub nav-parent {% if not defs_active %}collapsed{% endif %}{% if defs_active %} active{% endif %}">
+                <a href="{{ url_for('indicators_list') }}" class="nav-link nav-sub {% if defs_active %}active{% endif %}">
                     <i class="bi bi-list-check"></i> Ορισμοί Δεικτών
-                    <i class="bi bi-chevron-down ms-auto nav-caret"></i>
                 </a>
-                <div class="collapse {% if defs_active %}show{% endif %}" id="defsMenu">
-                    <a href="{{ url_for('indicators_list', grp='ΤΑΕΠ Ενηλίκων') }}" class="nav-link nav-sub2 {% if request.endpoint == 'indicators_list' and request.args.get('grp') == 'ΤΑΕΠ Ενηλίκων' %}active{% endif %}">
-                        <i class="bi bi-dot"></i> ΤΑΕΠ Ενηλίκων
-                    </a>
-                    <a href="{{ url_for('indicators_list', grp='ΤΑΕΠ Παίδων') }}" class="nav-link nav-sub2 {% if request.endpoint == 'indicators_list' and request.args.get('grp') == 'ΤΑΕΠ Παίδων' %}active{% endif %}">
-                        <i class="bi bi-dot"></i> ΤΑΕΠ Παίδων
-                    </a>
-                    <a href="{{ url_for('indicators_list') }}" class="nav-link nav-sub2 {% if defs_active and not request.args.get('grp') %}active{% endif %}">
-                        <i class="bi bi-dot"></i> Όλοι οι δείκτες
-                    </a>
-                </div>
                 <a href="{{ url_for('values_entry') }}" class="nav-link nav-sub {% if request.endpoint == 'values_entry' %}active{% endif %}">
                     <i class="bi bi-pencil-square"></i> Καταχώρηση Τιμών
                 </a>
@@ -149,20 +196,61 @@
                 </a>
             </div>
 
-            <div class="nav-section">Συμμόρφωση</div>
-            <a href="{{ url_for('compliance_matrix') }}" class="nav-link {% if request.endpoint in ('compliance_matrix','compliance_new','compliance_edit') %}active{% endif %}">
-                <i class="bi bi-grid-3x3-gap"></i> Πίνακας Συμμόρφωσης
+            {% set clin_active = request.endpoint in ('clinics_departments','quality_officers') %}
+            <a href="#clinMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if clin_active else 'false' }}" aria-controls="clinMenu"
+               class="nav-link nav-parent {% if not clin_active %}collapsed{% endif %}{% if clin_active %} active{% endif %}">
+                <i class="bi bi-people-fill"></i> Κλινικές και Ανθρώπινο Δυναμικό
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
             </a>
+            <div class="collapse {% if clin_active %}show{% endif %}" id="clinMenu">
+                <a href="{{ url_for('clinics_departments') }}" class="nav-link nav-sub {% if request.endpoint == 'clinics_departments' %}active{% endif %}">
+                    <i class="bi bi-hospital"></i> Κλινικές / Τμήματα
+                </a>
+                <a href="{{ url_for('quality_officers') }}" class="nav-link nav-sub {% if request.endpoint == 'quality_officers' %}active{% endif %}">
+                    <i class="bi bi-person-badge"></i> Υπεύθυνοι Ποιότητας
+                </a>
+            </div>
+            {% set psaf_active = request.endpoint in ('clinical_coordinators','psafety_reports') %}
+            <a href="#psafMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if psaf_active else 'false' }}" aria-controls="psafMenu"
+               class="nav-link nav-parent {% if not psaf_active %}collapsed{% endif %}{% if psaf_active %} active{% endif %}">
+                <i class="bi bi-heart-pulse"></i> Ασφάλεια Ασθενών
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
+            </a>
+            <div class="collapse {% if psaf_active %}show{% endif %}" id="psafMenu">
+                <a href="{{ url_for('clinical_coordinators') }}" class="nav-link nav-sub {% if request.endpoint == 'clinical_coordinators' %}active{% endif %}">
+                    <i class="bi bi-people"></i> Κλινικοί Συντονιστές
+                </a>
+                <a href="{{ url_for('psafety_reports') }}" class="nav-link nav-sub {% if request.endpoint == 'psafety_reports' %}active{% endif %}">
+                    <i class="bi bi-file-medical"></i> Αναφορές Ασφάλειας Ασθενών
+                </a>
+            </div>
+
+            <div class="nav-section">Επιθεωρήσεις & Έγγραφα</div>
+            {% set insp_active = 'inspection' in (request.endpoint or '') or 'checklist' in (request.endpoint or '') %}
+            <a href="#inspMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if insp_active else 'false' }}" aria-controls="inspMenu"
+               class="nav-link nav-parent {% if not insp_active %}collapsed{% endif %}{% if insp_active %} active{% endif %}">
+                <i class="bi bi-search"></i> Επιθεωρήσεις
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
+            </a>
+            <div class="collapse {% if insp_active %}show{% endif %}" id="inspMenu">
+                <a href="{{ url_for('inspection_schedule') }}" class="nav-link nav-sub {% if request.endpoint in ('inspection_schedule','inspection_schedule_list') %}active{% endif %}">
+                    <i class="bi bi-calendar-week"></i> Προγραμματισμός Επιθεωρήσεων
+                </a>
+                <a href="{{ url_for('inspections_list') }}" class="nav-link nav-sub {% if request.endpoint == 'inspections_list' %}active{% endif %}">
+                    <i class="bi bi-card-checklist"></i> Κατάλογος Επιθεωρήσεων
+                </a>
+                <a href="{{ url_for('checklists_list') }}" class="nav-link nav-sub {% if 'checklist' in (request.endpoint or '') %}active{% endif %}">
+                    <i class="bi bi-ui-checks"></i> Λίστες Ελέγχου
+                </a>
+            </div>
             <a href="{{ url_for('compliance_list') }}" class="nav-link {% if request.endpoint == 'compliance_list' %}active{% endif %}">
                 <i class="bi bi-journal-check"></i> Αξιολογήσεις
             </a>
             <a href="{{ url_for('procedures_list') }}" class="nav-link {% if request.endpoint in ('procedures_list','procedure_new','procedure_edit') %}active{% endif %}">
                 <i class="bi bi-diagram-3"></i> Πρότυπες Διαδικασίες
-            </a>
-
-            <div class="nav-section">Επιθεωρήσεις & Έγγραφα</div>
-            <a href="{{ url_for('inspections_list') }}" class="nav-link {% if 'inspection' in (request.endpoint or '') %}active{% endif %}">
-                <i class="bi bi-search"></i> Επιθεωρήσεις
             </a>
             <a href="{{ url_for('documents_list') }}" class="nav-link {% if 'document' in (request.endpoint or '') %}active{% endif %}">
                 <i class="bi bi-folder2-open"></i> Έγγραφα
@@ -170,16 +258,28 @@
             <a href="{{ url_for('reports_page') }}" class="nav-link {% if request.endpoint == 'reports_page' %}active{% endif %}">
                 <i class="bi bi-file-earmark-bar-graph"></i> Εκθέσεις
             </a>
+            {% set act_active = request.endpoint in ('activities_list','activity_new') %}
+            <a href="#actMenu" data-bs-toggle="collapse" role="button"
+               aria-expanded="{{ 'true' if act_active else 'false' }}" aria-controls="actMenu"
+               class="nav-link nav-parent {% if not act_active %}collapsed{% endif %}{% if act_active %} active{% endif %}">
+                <i class="bi bi-activity"></i> Δραστηριότητες
+                <i class="bi bi-chevron-down ms-auto nav-caret"></i>
+            </a>
+            <div class="collapse {% if act_active %}show{% endif %}" id="actMenu">
+                <a href="{{ url_for('activity_new') }}" class="nav-link nav-sub {% if request.endpoint == 'activity_new' %}active{% endif %}">
+                    <i class="bi bi-plus-circle"></i> Νέα Δραστηριότητα
+                </a>
+                <a href="{{ url_for('activities_list') }}" class="nav-link nav-sub {% if request.endpoint == 'activities_list' %}active{% endif %}">
+                    <i class="bi bi-list-ul"></i> Κατάλογος Δραστηριοτήτων
+                </a>
+            </div>
 
             {% if session.role in ('admin', 'central') %}
-            <div class="nav-section">Διαχείριση</div>
+            <div class="nav-section">Διαχείριση συστήματος</div>
             <a href="{{ url_for('admin_hospitals') }}" class="nav-link {% if request.endpoint == 'admin_hospitals' %}active{% endif %}">
                 <i class="bi bi-hospital"></i> Νοσηλευτήρια
             </a>
             {% if session.role == 'admin' %}
-            <a href="{{ url_for('users_list') }}" class="nav-link {% if request.endpoint in ('users_list','user_new','user_edit') %}active{% endif %}">
-                <i class="bi bi-people"></i> Χρήστες
-            </a>
             <a href="{{ url_for('admin_settings') }}" class="nav-link {% if request.endpoint == 'admin_settings' %}active{% endif %}">
                 <i class="bi bi-gear"></i> Ρυθμίσεις
             </a>
@@ -187,22 +287,26 @@
             <a href="{{ url_for('audit_trail') }}" class="nav-link {% if request.endpoint == 'audit_trail' %}active{% endif %}">
                 <i class="bi bi-journal-text"></i> Ιστορικό
             </a>
-            {% endif %}
-
             {% if session.role == 'admin' %}
-            {% set admin_active = request.endpoint in ('administrator','administrator_users','administrator_unlock','administrator_set_password') %}
-            <div class="nav-section">Administrator</div>
+            {% set admin_active = request.endpoint in ('administrator','administrator_users','administrator_unlock','administrator_set_password','administrator_lists','administrator_list_clear','administrator_list_delete') %}
             <a href="#adminMenu" data-bs-toggle="collapse" role="button"
                aria-expanded="{{ 'true' if admin_active else 'false' }}" aria-controls="adminMenu"
                class="nav-link nav-parent {% if not admin_active %}collapsed{% endif %}{% if admin_active %} active{% endif %}">
-                <i class="bi bi-shield-lock"></i> Administrator
+                <i class="bi bi-shield-lock"></i> Διαχειριστής Συστήματος
                 <i class="bi bi-chevron-down ms-auto nav-caret"></i>
             </a>
             <div class="collapse {% if admin_active %}show{% endif %}" id="adminMenu">
                 <a href="{{ url_for('administrator_users') }}" class="nav-link nav-sub {% if request.endpoint in ('administrator_users','administrator_set_password') %}active{% endif %}">
-                    <i class="bi bi-people"></i> Users
+                    <i class="bi bi-people"></i> Χρήστες
+                </a>
+                <a href="#" class="nav-link nav-sub" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                    <i class="bi bi-person-plus"></i> Δημιουργία Χρήστη
+                </a>
+                <a href="{{ url_for('administrator_lists') }}" class="nav-link nav-sub {% if request.endpoint in ('administrator_lists','administrator_list_clear','administrator_list_delete') %}active{% endif %}">
+                    <i class="bi bi-card-list"></i> Λίστες Επιλογών
                 </a>
             </div>
+            {% endif %}
             {% endif %}
         </div>
 
@@ -225,6 +329,15 @@
     {% endif %}
 
     <div class="{% if session.user_id %}main-content{% else %}container-fluid{% endif %}">
+        {% if session.user_id %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-start align-items-center gap-3 flex-wrap">
+            <img src="{{ url_for('static', filename='img/logo_okypy.png') }}" alt="ΟΚΥπΥ" style="height:52px; width:auto">
+            <img src="{{ url_for('static', filename='img/logo_audit.png') }}" alt="Λογότυπο" style="height:52px; width:auto">
+          </div>
+          <div class="fw-semibold" style="margin-top:4px; color:#555; letter-spacing:0.3px">Accreditation Canada - Platinum</div>
+        </div>
+        {% endif %}
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="mt-2">
@@ -240,6 +353,58 @@
 
         {% block content %}{% endblock %}
     </div>
+
+    {% if session.role == 'admin' %}
+    <div class="modal fade" id="createUserModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" method="post" action="{{ url_for('administrator_create_user') }}">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-person-plus"></i> Δημιουργία Χρήστη</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Κλείσιμο"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Όνομα χρήστη (username)</label>
+              <input type="text" name="username" class="form-control" required autocomplete="off" placeholder="π.χ. giannis">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Ονοματεπώνυμο</label>
+              <input type="text" name="full_name" class="form-control" required autocomplete="off" placeholder="π.χ. Γιάννης Παπαδόπουλος">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control" required autocomplete="off" placeholder="π.χ. giannis@okypy.gov.cy">
+              <div class="form-text">Θα σταλεί αυτόματο μήνυμα καλωσορίσματος με τα στοιχεία σύνδεσης.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Κωδικός</label>
+              <input type="text" class="form-control" value="1234" readonly>
+              <div class="form-text">Προσωρινός κωδικός. Στην πρώτη σύνδεση θα ζητηθεί αλλαγή.</div>
+            </div>
+            <div class="mb-1">
+              <label class="form-label d-block fw-semibold">Λειτουργικότητα</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="role" id="roleAdd" value="q_add" checked>
+                <label class="form-check-label" for="roleAdd">View / Add <span class="text-muted">— προβολή &amp; προσθήκη</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="role" id="roleEdit" value="q_edit">
+                <label class="form-check-label" for="roleEdit">View / Add / Edit <span class="text-muted">— &amp; τροποποίηση</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="role" id="roleDelete" value="q_delete">
+                <label class="form-check-label" for="roleDelete">View / Add / Edit / Delete <span class="text-muted">— &amp; διαγραφή</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Άκυρο</button>
+            <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Δημιουργία</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>

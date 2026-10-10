@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{% if rec %}Επεξεργασία{% else %}Νέα Προγραμματισμένη Εκπαίδευση{% endif %}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h2><i class="bi bi-calendar-check"></i> {% if rec %}Επεξεργασία Προγραμματισμένης Εκπαίδευσης{% else %}Νέα Προγραμματισμένη Εκπαίδευση{% endif %}</h2>
+  <div class="text-muted">Προγραμματισμένες Εκπαιδεύσεις</div></div>
+  <a href="{{ url_for('training_scheduled') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul"></i> Κατάλογος</a>
+</div>
+{% set named = staff|selectattr('person_name')|list %}
+{% if not named %}<div class="alert alert-warning">Δεν υπάρχουν καταχωρημένα ονόματα προσωπικού. Συμπλήρωσε πρώτα το <a href="{{ url_for('quality_unit_orgchart') }}">Οργανόγραμμα</a>.</div>{% endif %}
+<form method="post" action="{{ url_for('training_scheduled_edit', rec_id=rec.id) if rec else url_for('training_scheduled_new') }}">
+  <div class="card mb-3"><div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label">Εκπαιδευόμενος <span class="text-danger">*</span></label>
+        <select name="node_id" class="form-select" required>
+          <option value="">— Επιλογή —</option>
+          {% for s in staff %}{% if s.person_name %}<option value="{{ s.id }}" {% if rec and rec.node_id==s.id %}selected{% endif %}>{{ s.person_name }} — {{ s.unit_role }}</option>{% endif %}{% endfor %}
+        </select></div>
+      <div class="col-md-3"><label class="form-label">Ημ. Έναρξης</label>
+        <input type="date" name="start_date" class="form-control" value="{{ rec.start_date if rec else '' }}"></div>
+      <div class="col-md-3"><label class="form-label">Ημ. Λήξης</label>
+        <input type="date" name="end_date" class="form-control" value="{{ rec.end_date if rec else '' }}"></div>
+      <div class="col-md-6"><label class="form-label">Τίτλος Εκπαίδευσης</label>
+        <input name="title" class="form-control" value="{{ rec.title if rec else '' }}"></div>
+      <div class="col-md-6"><label class="form-label">Φορέας Εκπαίδευσης</label>
+        <input name="provider" class="form-control" value="{{ rec.provider if rec else '' }}"></div>
+    </div>
+  </div></div>
+  <button class="btn btn-success"><i class="bi bi-check2-circle"></i> Αποθήκευση</button>
+  <a href="{{ url_for('training_scheduled') }}" class="btn btn-outline-secondary">Άκυρο</a>
+</form>
+{% endblock %}

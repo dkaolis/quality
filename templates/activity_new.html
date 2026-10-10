@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Νέα Δραστηριότητα{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h2><i class="bi bi-activity"></i> Νέα Δραστηριότητα</h2>
+  <div class="text-muted">Καταχώρηση νέας δραστηριότητας</div></div>
+  <a href="{{ url_for('activities_list') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul"></i> Κατάλογος</a>
+</div>
+
+<form method="post" action="{{ url_for('activity_new') }}" enctype="multipart/form-data">
+  <div class="card mb-3"><div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-8"><label class="form-label">Τίτλος <span class="text-danger">*</span></label>
+        <input name="title" class="form-control" required maxlength="300"></div>
+      <div class="col-md-4"><label class="form-label">Ημερομηνία</label>
+        <input type="date" name="activity_date" class="form-control"></div>
+      <div class="col-md-6"><label class="form-label">Διοργανωτής</label>
+        <input name="organizer" class="form-control" maxlength="200"></div>
+      <div class="col-12"><label class="form-label">Περιγραφή</label>
+        <textarea name="description" class="form-control" rows="5"></textarea></div>
+    </div>
+  </div></div>
+
+  <div class="card mb-3"><div class="card-body">
+    <label class="form-label"><i class="bi bi-images"></i> Φωτογραφίες <span class="text-muted">(έως 15)</span></label>
+    <input type="file" id="photoInput" name="photos" class="form-control" accept="image/*" multiple>
+    <div class="form-text">Επίλεξε έως 15 φωτογραφίες — θα εμφανιστούν η μία δίπλα στην άλλη.</div>
+    <div id="preview" class="d-flex flex-wrap gap-2 mt-3"></div>
+
+    <label class="form-label mt-4"><i class="bi bi-camera-video"></i> Βίντεο</label>
+    <input type="file" id="videoInput" name="videos" class="form-control" accept="video/*" multiple>
+    <div class="form-text">Αποδεκτά: mp4, webm, ogg, mov, m4v.</div>
+    <div id="vpreview" class="d-flex flex-wrap gap-2 mt-3"></div>
+  </div></div>
+
+  <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle"></i> Αποθήκευση</button>
+  <a href="{{ url_for('activities_list') }}" class="btn btn-outline-secondary">Άκυρο</a>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function bindPreview(inputId, boxId, kind, max){
+  var inp=document.getElementById(inputId), box=document.getElementById(boxId);
+  if(!inp) return;
+  var store=new DataTransfer();
+  function render(){
+    box.innerHTML='';
+    Array.from(store.files).forEach(function(file, idx){
+      var url=URL.createObjectURL(file);
+      var d=document.createElement('div');
+      d.style.cssText='flex:0 0 auto; text-align:center; position:relative';
+      var media = kind==='video'
+        ? '<video src="'+url+'" muted controls style="height:150px; width:auto; border-radius:8px; border:1px solid #dee2e6; background:#000"></video>'
+        : '<img src="'+url+'" style="height:130px; width:auto; border-radius:8px; border:1px solid #dee2e6; object-fit:cover">';
+      var rm='<button type="button" data-idx="'+idx+'" class="rmbtn" title="Αφαίρεση" style="position:absolute; top:3px; right:3px; border:0; background:rgba(220,53,69,0.9); color:#fff; width:22px; height:22px; border-radius:50%; line-height:1; cursor:pointer">&times;</button>';
+      d.innerHTML=media+rm+'<div class="text-muted" style="font-size:0.7rem; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">'+file.name+'</div>';
+      box.appendChild(d);
+    });
+    box.querySelectorAll('.rmbtn').forEach(function(b){
+      b.addEventListener('click', function(){
+        var i=parseInt(this.getAttribute('data-idx'),10);
+        var nd=new DataTransfer();
+        Array.from(store.files).forEach(function(f,j){ if(j!==i) nd.items.add(f); });
+        store=nd; inp.files=store.files; render();
+      });
+    });
+  }
+  inp.addEventListener('change', function(e){
+    var rejected=false;
+    Array.from(e.target.files).forEach(function(f){
+      if(max && store.files.length>=max){ rejected=true; return; }
+      store.items.add(f);
+    });
+    if(rejected){ alert('Μπορείς να επιλέξεις έως ' + max + ' φωτογραφίες.'); }
+    inp.files=store.files;
+    render();
+  });
+}
+bindPreview('photoInput','preview','image',15);
+bindPreview('videoInput','vpreview','video');
+</script>
+{% endblock %}

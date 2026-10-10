@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Λίστες Ελέγχου{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-ui-checks"></i> Λίστες Ελέγχου</h2>
+  <div class="text-muted" style="font-size:0.85rem">Τα διαθέσιμα εργαλεία/λίστες ελέγχου (κενά πρότυπα). Επιλέγονται για συγκεκριμένη επιθεώρηση από το κουμπί <strong>Έναρξη Επιθεώρησης</strong> στον Προγραμματισμό, όπου και παίρνουν τα στοιχεία (τμήμα, επιθεωρητές, είδος).</div>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table table-hover mb-0 align-middle" style="font-size:0.88rem">
+    <thead><tr><th>Κωδικός</th><th>Τίτλος</th><th>Δημιουργήθηκε από</th><th>Ημ/νία δημιουργίας</th><th></th></tr></thead>
+    <tbody>
+    {% for t in templates %}
+    <tr>
+      <td><span class="badge bg-primary">{{ t.code }}</span></td>
+      <td class="fw-semibold">{{ t.title }}</td>
+      <td>{{ t.created_by or '—' }}</td>
+      <td>{{ t.created_at }}</td>
+      <td class="text-end text-nowrap">
+        <a href="{{ url_for('checklist_template_view', tpl_id=t.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> Άνοιγμα</a>
+        {% if session.role == 'admin' %}
+        <form method="post" action="{{ url_for('checklist_template_delete', tpl_id=t.id) }}" class="d-inline" onsubmit="return confirm('Διαγραφή του προτύπου «{{ t.title }}»;');">
+          <button type="submit" class="btn btn-sm btn-outline-danger" title="Διαγραφή"><i class="bi bi-trash"></i></button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-center text-muted py-3">Δεν υπάρχουν λίστες ελέγχου.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% endblock %}

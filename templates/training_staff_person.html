@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ node.person_name }} — Εκπαιδεύσεις{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h2><i class="bi bi-person-badge"></i> {{ node.person_name or '—' }}</h2>
+    <div class="text-muted">{{ node.person_title or '' }}{% if node.person_title %} &middot; {% endif %}{{ node.unit_role }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('training_staff') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-people"></i> Προσωπικό</a>
+  </div>
+</div>
+{% if rows %}
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover align-middle mb-0" style="font-size:0.9rem">
+  <thead class="table-light"><tr>
+    <th style="width:70px">Έτος</th><th>Τίτλος</th><th>Φορέας</th>
+    <th style="width:110px">Έναρξη</th><th style="width:110px">Λήξη</th>
+    <th class="text-center" style="width:80px">Δίπλωμα</th>
+    {% if can_edit %}<th style="width:110px"></th>{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.year or '—' }}</td>
+    <td class="fw-semibold">{{ r.title or '—' }}</td>
+    <td>{{ r.provider or '—' }}</td>
+    <td>{{ r.start_date or '—' }}</td>
+    <td>{{ r.end_date or '—' }}</td>
+    <td class="text-center">
+      {% if r.diploma %}
+        {% if r.diploma.lower().endswith('.pdf') %}
+        <a href="{{ url_for('training_staff_diploma', rec_id=r.id) }}" target="_blank" title="Άνοιγμα PDF"><i class="bi bi-file-earmark-pdf" style="font-size:1.5rem; color:#dc3545"></i></a>
+        {% else %}
+        <img src="{{ url_for('training_staff_diploma', rec_id=r.id) }}" data-bs-toggle="modal" data-bs-target="#dipModal" data-src="{{ url_for('training_staff_diploma', rec_id=r.id) }}" title="Κλικ για μεγέθυνση" style="height:46px; width:46px; object-fit:cover; border-radius:6px; border:1px solid #dee2e6; cursor:pointer">
+        {% endif %}
+      {% else %}—{% endif %}
+    </td>
+    {% if can_edit %}<td class="text-end">
+      <a href="{{ url_for('training_staff_edit', rec_id=r.id) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i></a>
+      {% if can_delete %}<form method="post" action="{{ url_for('training_staff_delete', rec_id=r.id) }}" style="display:inline" onsubmit="return confirm('Διαγραφή;');"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button></form>{% endif %}
+    </td>{% endif %}
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="modal fade" id="dipModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="modal-content"><div class="modal-body p-0 text-center bg-dark">
+    <img id="dipModalImg" src="" alt="Δίπλωμα" style="max-width:100%; max-height:85vh; object-fit:contain"></div></div>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body text-muted">Δεν υπάρχουν εκπαιδεύσεις για αυτό το άτομο. Οι εκπαιδεύσεις προστίθενται μέσω «Προγραμματισμένες Εκπαιδεύσεις → Ολοκλήρωση Εκπαίδευσης».</div></div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+var dm=document.getElementById('dipModal');
+if(dm){ dm.addEventListener('show.bs.modal', function(ev){ document.getElementById('dipModalImg').src=ev.relatedTarget.getAttribute('data-src'); }); }
+</script>
+{% endblock %}

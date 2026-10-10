@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Προγραμματισμός Επιθεωρήσεων{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-calendar-week"></i> Προγραμματισμός Επιθεωρήσεων</h2>
+    <a href="{{ url_for('inspection_schedule_list') }}" class="btn btn-outline-primary btn-action">
+        <i class="bi bi-list-ul"></i> Προγραμματισμένες (λίστα)
+    </a>
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-md-4">
+    <div class="card text-center h-100 border-danger"><div class="card-body py-2">
+      <div class="text-danger fw-semibold" style="font-size:0.8rem"><i class="bi bi-calendar-check"></i> Υπόλοιπες ημέρες τρέχουσας εβδομάδας</div>
+      <div class="fw-bold text-danger" style="font-size:1.7rem">{{ cnt_week }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center h-100" style="border-color:#fd7e14"><div class="card-body py-2">
+      <div class="fw-semibold" style="font-size:0.8rem; color:#fd7e14"><i class="bi bi-calendar-week"></i> Επόμενη εβδομάδα</div>
+      <div class="fw-bold" style="font-size:1.7rem; color:#fd7e14">{{ cnt_next }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center h-100 border-success"><div class="card-body py-2">
+      <div class="text-success fw-semibold" style="font-size:0.8rem"><i class="bi bi-clipboard-check"></i> Εκκρεμείς επιθεωρήσεις (δεν έχουν ολοκληρωθεί)</div>
+      <div class="fw-bold text-success" style="font-size:1.7rem">{{ n_planned }}</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <a href="{{ url_for('inspection_schedule', year=prev_y, month=prev_m) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+      <h5 class="mb-0">{{ month_name }} {{ year }}</h5>
+      <a href="{{ url_for('inspection_schedule', year=next_y, month=next_m) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-bordered mb-0 text-center align-top" style="table-layout:fixed">
+      <thead><tr>
+        <th>Δευ</th><th>Τρι</th><th>Τετ</th><th>Πεμ</th><th>Παρ</th>
+        <th class="text-danger">Σαβ</th><th class="text-danger">Κυρ</th>
+      </tr></thead>
+      <tbody>
+        {% for week in weeks %}
+        <tr style="height:92px">
+          {% for day in week %}
+          {% if day == 0 %}
+          <td class="bg-light"></td>
+          {% else %}
+          <td class="day-cell" style="cursor:pointer"
+              data-date="{{ '%04d-%02d-%02d'|format(year, month, day) }}">
+            <div class="fw-bold text-start">{{ day }}</div>
+            {% for s in by_day.get(day, []) %}
+            <div class="badge bg-primary text-wrap d-block mt-1 text-start sched-item" style="font-size:0.66rem; cursor:pointer"
+                 data-id="{{ s.id }}" data-date="{{ s.insp_date }}" data-all_day="{{ s.all_day }}"
+                 data-start="{{ s.start_time or '' }}" data-end="{{ s.end_time or '' }}"
+                 data-dept="{{ s.department or '' }}" data-scope="{{ s.scope or '' }}" data-itype="{{ s.itype or '' }}"
+                 data-i1="{{ s.inspector1 or '' }}" data-i2="{{ s.inspector2 or '' }}" data-i3="{{ s.inspector3 or '' }}">
+              {% if s.all_day %}Ολοήμ.{% else %}{{ s.start_time or '' }}{% endif %} · {{ (s.department or '')[:18] }}
+            </div>
+            {% endfor %}
+          </td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="text-muted mt-2" style="font-size:0.8rem">
+      <i class="bi bi-info-circle"></i> Κάνε κλικ σε μια ημερομηνία για να προγραμματίσεις επιθεώρηση.
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header py-2"><i class="bi bi-calendar-week"></i> Προγραμματισμένες Επιθεωρήσεις{% if sched_years %} ({{ sched_years|join(' / ') }}){% endif %}</div>
+  <div class="card-body">
+    <div class="mb-3">Σύνολο: <span class="fw-bold text-primary" style="font-size:1.5rem">{{ sched_total }}</span></div>
+    <div class="text-muted mb-1" style="font-size:0.85rem"><i class="bi bi-calendar3"></i> Ανά έτος:</div>
+    <table class="table table-sm table-hover mb-0" style="max-width:360px; font-size:0.9rem">
+      <tbody>
+      {% for yr, cnt in sched_by_year %}
+      <tr><td>{{ yr }}</td><td class="text-end fw-semibold" style="width:80px">{{ cnt }}</td></tr>
+      {% else %}
+      <tr><td class="text-muted py-2">Δεν υπάρχουν προγραμματισμένες επιθεωρήσεις.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="schedModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('inspection_schedule_add') }}">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-calendar-plus"></i> Προγραμματισμός — <span id="schedDateLabel"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Κλείσιμο"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="insp_date" id="schedDate">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="all_day" id="allDay" value="1">
+          <label class="form-check-label" for="allDay">Ολοήμερη</label>
+        </div>
+        <div class="row g-2 mb-2" id="timeFields">
+          <div class="col-6"><label class="form-label mb-1" style="font-size:0.8rem">Ώρα έναρξης</label>
+            <div class="input-group input-group-sm">
+              <select name="start_h" class="form-select"><option value="">ΩΩ</option>{% for h in range(24) %}<option value="{{ '%02d'|format(h) }}">{{ '%02d'|format(h) }}</option>{% endfor %}</select>
+              <span class="input-group-text px-1">:</span>
+              <select name="start_m" class="form-select"><option value="">ΛΛ</option>{% for mm in range(60) %}<option value="{{ '%02d'|format(mm) }}">{{ '%02d'|format(mm) }}</option>{% endfor %}</select>
+            </div>
+          </div>
+          <div class="col-6"><label class="form-label mb-1" style="font-size:0.8rem">Ώρα λήξης</label>
+            <div class="input-group input-group-sm">
+              <select name="end_h" class="form-select"><option value="">ΩΩ</option>{% for h in range(24) %}<option value="{{ '%02d'|format(h) }}">{{ '%02d'|format(h) }}</option>{% endfor %}</select>
+              <span class="input-group-text px-1">:</span>
+              <select name="end_m" class="form-select"><option value="">ΛΛ</option>{% for mm in range(60) %}<option value="{{ '%02d'|format(mm) }}">{{ '%02d'|format(mm) }}</option>{% endfor %}</select>
+            </div>
+          </div>
+        </div>
+        <div class="mb-2"><label class="form-label mb-1" style="font-size:0.8rem">Επιθεωρούμενο τμήμα</label>
+          <input type="text" name="department" class="form-control form-control-sm" list="deptList" autocomplete="off"
+                 required placeholder="Επίλεξε ή πληκτρολόγησε νέο τμήμα">
+          <datalist id="deptList">
+            {% for d in departments %}<option value="{{ d }}"></option>{% endfor %}
+          </datalist>
+          <datalist id="inspList">
+            {% for ins in inspectors %}<option value="{{ ins }}"></option>{% endfor %}
+          </datalist>
+        </div>
+        <div class="mb-2"><label class="form-label mb-1" style="font-size:0.8rem">Είδος επιθεώρησης</label>
+          <select name="itype" class="form-select form-select-sm" required>
+            <option value="" disabled selected>— Επίλεξε —</option>
+            {% for t in sched_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+          </select>
+        </div>
+        <label class="form-label mb-1" style="font-size:0.8rem">Επιθεωρητές (1–3)</label>
+        <input type="text" name="inspector1" class="form-control form-control-sm mb-1" placeholder="Επιθεωρητής 1" list="inspList" autocomplete="off" required>
+        <input type="text" name="inspector2" class="form-control form-control-sm mb-1" placeholder="Επιθεωρητής 2 (προαιρετικά)" list="inspList" autocomplete="off">
+        <input type="text" name="inspector3" class="form-control form-control-sm" placeholder="Επιθεωρητής 3 (προαιρετικά)" list="inspList" autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Προγραμματισμός</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editForm" method="post" action="#">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Επεξεργασία — <span id="editDateLabel"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Κλείσιμο"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="insp_date">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="all_day" id="editAllDay" value="1">
+            <label class="form-check-label" for="editAllDay">Ολοήμερη</label>
+          </div>
+          <div class="row g-2 mb-2" id="editTimeFields">
+            <div class="col-6"><label class="form-label mb-1" style="font-size:0.8rem">Ώρα έναρξης</label>
+              <div class="input-group input-group-sm">
+                <select name="start_h" class="form-select"><option value="">ΩΩ</option>{% for h in range(24) %}<option value="{{ '%02d'|format(h) }}">{{ '%02d'|format(h) }}</option>{% endfor %}</select>
+                <span class="input-group-text px-1">:</span>
+                <select name="start_m" class="form-select"><option value="">ΛΛ</option>{% for mm in range(60) %}<option value="{{ '%02d'|format(mm) }}">{{ '%02d'|format(mm) }}</option>{% endfor %}</select>
+              </div></div>
+            <div class="col-6"><label class="form-label mb-1" style="font-size:0.8rem">Ώρα λήξης</label>
+              <div class="input-group input-group-sm">
+                <select name="end_h" class="form-select"><option value="">ΩΩ</option>{% for h in range(24) %}<option value="{{ '%02d'|format(h) }}">{{ '%02d'|format(h) }}</option>{% endfor %}</select>
+                <span class="input-group-text px-1">:</span>
+                <select name="end_m" class="form-select"><option value="">ΛΛ</option>{% for mm in range(60) %}<option value="{{ '%02d'|format(mm) }}">{{ '%02d'|format(mm) }}</option>{% endfor %}</select>
+              </div></div>
+          </div>
+          <div class="mb-2"><label class="form-label mb-1" style="font-size:0.8rem">Επιθεωρούμενο τμήμα</label>
+            <input type="text" name="department" class="form-control form-control-sm" list="deptList" autocomplete="off" required></div>
+          <div class="mb-2"><label class="form-label mb-1" style="font-size:0.8rem">Είδος επιθεώρησης</label>
+            <select name="itype" class="form-select form-select-sm" required>
+              <option value="" disabled>— Επίλεξε —</option>
+              {% for t in sched_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+            </select></div>
+          <label class="form-label mb-1" style="font-size:0.8rem">Επιθεωρητές (1–3)</label>
+          <input type="text" name="inspector1" class="form-control form-control-sm mb-1" placeholder="Επιθεωρητής 1" list="inspList" autocomplete="off" required>
+          <input type="text" name="inspector2" class="form-control form-control-sm mb-1" placeholder="Επιθεωρητής 2 (προαιρετικά)" list="inspList" autocomplete="off">
+          <input type="text" name="inspector3" class="form-control form-control-sm" placeholder="Επιθεωρητής 3 (προαιρετικά)" list="inspList" autocomplete="off">
+        </div>
+        <div class="modal-footer justify-content-between">
+          <button type="submit" form="editDeleteForm" class="btn btn-outline-danger"
+                  onclick="return confirm('Διαγραφή του προγραμματισμού;');"><i class="bi bi-trash"></i> Διαγραφή</button>
+          <div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Άκυρο</button>
+            <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
+          </div>
+        </div>
+      </form>
+      <form id="editDeleteForm" method="post" action="#"></form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var modalEl = document.getElementById('schedModal');
+  if (!modalEl) return;
+  document.querySelectorAll('.day-cell').forEach(function (td) {
+    td.addEventListener('click', function () {
+      var d = td.getAttribute('data-date');
+      document.getElementById('schedDate').value = d;
+      document.getElementById('schedDateLabel').textContent = d;
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    });
+  });
+  var allDay = document.getElementById('allDay');
+  var tf = document.getElementById('timeFields');
+  if (allDay && tf) {
+    allDay.addEventListener('change', function () {
+      tf.style.display = allDay.checked ? 'none' : '';
+    });
+  }
+})();
+
+(function () {
+  var editModal = document.getElementById('editModal');
+  if (!editModal) return;
+  var ef = document.getElementById('editForm');
+  function setTime(prefix, val) {
+    var hp = ef.querySelector('[name=' + prefix + '_h]'),
+        mp = ef.querySelector('[name=' + prefix + '_m]');
+    if (val && val.indexOf(':') > -1) { hp.value = val.split(':')[0]; mp.value = val.split(':')[1]; }
+    else { hp.value = ''; mp.value = ''; }
+  }
+  document.querySelectorAll('.sched-item').forEach(function (el) {
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var d = el.dataset;
+      ef.action = '/inspections/schedule/' + d.id + '/edit';
+      document.getElementById('editDeleteForm').action = '/inspections/schedule/' + d.id + '/delete';
+      document.getElementById('editDateLabel').textContent = d.date;
+      ef.querySelector('[name=insp_date]').value = d.date;
+      var ad = d.all_day === '1';
+      ef.querySelector('[name=all_day]').checked = ad;
+      setTime('start', d.start);
+      setTime('end', d.end);
+      ef.querySelector('[name=department]').value = d.dept || '';
+      ef.querySelector('[name=scope]').value = d.scope || '';
+      ef.querySelector('[name=itype]').value = d.itype || '';
+      ef.querySelector('[name=inspector1]').value = d.i1 || '';
+      ef.querySelector('[name=inspector2]').value = d.i2 || '';
+      ef.querySelector('[name=inspector3]').value = d.i3 || '';
+      document.getElementById('editTimeFields').style.display = ad ? 'none' : '';
+      bootstrap.Modal.getOrCreateInstance(editModal).show();
+    });
+  });
+  var eAll = editModal.querySelector('[name=all_day]');
+  var etf = document.getElementById('editTimeFields');
+  if (eAll && etf) eAll.addEventListener('change', function () {
+    etf.style.display = eAll.checked ? 'none' : '';
+  });
+})();
+</script>
+{% endblock %}

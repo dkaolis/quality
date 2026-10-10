@@ -1,0 +1,603 @@
+{% extends "base.html" %}
+{% block title %}Υπεύθυνοι Ποιότητας{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-person-badge"></i> Υπεύθυνοι Ποιότητας</h2>
+    <div class="text-muted" style="font-size:0.82rem">Πάτησε σε μια κλινική (ή «Επεξεργασία») για να προσθέσεις/αλλάξεις υπευθύνους, τηλέφωνα & email.</div>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <button id="qoPrint" class="btn btn-outline-secondary btn-sm" disabled><i class="bi bi-printer"></i> Εκτύπωση επιλεγμένων (<span id="qoSelCount">0</span>)</button>
+    <a href="{{ url_for('qo_activity_new') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-diagram-3"></i> Δημιουργία Δραστηριότητας Υπευθύνων Ποιότητας</a>
+    <a href="{{ url_for('qo_activities_list') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-card-checklist"></i> Δραστηριότητες</a>
+    <button id="qoEditBtn" class="btn btn-primary btn-sm"{% if not can_edit %} style="display:none"{% endif %}><i class="bi bi-pencil-square"></i> Επεξεργασία</button>
+  </div>
+</div>
+
+{% if not can_edit %}<div class="alert alert-info py-2 px-3 mb-2" style="font-size:0.85rem"><i class="bi bi-eye"></i> Έχετε δικαίωμα <strong>προβολής μόνο</strong> — δεν μπορείτε να τροποποιήσετε αυτή τη σελίδα.</div>{% endif %}
+<div id="qoReviewAlert" class="alert alert-warning d-none align-items-center gap-2 mb-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <span>Η σελίδα χρειάζεται αναθεώρηση — η ημερομηνία επόμενης αναθεώρησης έχει παρέλθει (<strong id="qoReviewAlertDate"></strong>).</span>
+</div>
+
+<style>
+  #qoTableWrap{ max-height:calc(100vh - 340px); min-height:200px; overflow:auto; }
+  #qoTable thead th{ position:sticky; top:0; z-index:2; background:#f1f5f9; }
+  #qoTable tbody tr.qo-incomplete{ --bs-table-bg:#f8d7da; }
+  #qoTable tbody tr.qo-incomplete.table-active{ --bs-table-bg:#f1b6bd; }
+</style>
+
+<div class="d-flex gap-2 flex-wrap mb-2">
+  <div class="card border-0 shadow-sm" style="min-width:150px">
+    <div class="card-body py-2 px-3">
+      <div class="text-muted" style="font-size:0.72rem">Υπεύθυνοι Ποιότητας</div>
+      <div class="fw-bold" style="font-size:1.4rem"><span id="qoStatOfficers">0</span></div>
+    </div>
+  </div>
+  <div class="card border-0 shadow-sm" style="min-width:150px">
+    <div class="card-body py-2 px-3">
+      <div class="text-muted" style="font-size:0.72rem">Κλινικές/Τμήματα με ελλιπή στοιχεία</div>
+      <div class="fw-bold" style="font-size:1.4rem"><span class="text-danger" id="qoStatIncomplete">0</span> <span class="text-muted" style="font-size:0.95rem">από</span> <span id="qoStatTotal">0</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card"><div class="card-body p-0"><div class="table-responsive" id="qoTableWrap">
+<table class="table table-hover table-bordered align-middle mb-0" id="qoTable" style="font-size:0.85rem">
+  <thead class="table-light"><tr>
+    <th style="width:34px" class="text-center"><input type="checkbox" id="qoSelAll" class="form-check-input"></th>
+    <th style="min-width:150px">Κλινική / Τμήμα</th>
+    <th style="min-width:160px">Υπεύθυνοι Ποιότητας</th>
+    <th style="min-width:120px">Τηλέφωνα</th>
+    <th style="min-width:180px">Email</th>
+  </tr></thead>
+  <tbody>
+  {% for c in clinics %}
+  <tr data-name="{{ c.name }}" style="cursor:pointer">
+    <td class="text-center qo-selcell"><input type="checkbox" class="form-check-input qo-sel"></td>
+    <td><strong>{{ c.name }}</strong>{% set cc = clinic_counts.get(c.name) %}{% if cc %} <span class="badge rounded-pill bg-primary" title="Προσκλήσεις">{{ cc.inv }}</span> <span class="badge rounded-pill bg-success" title="Παρουσίες">{{ cc.pres }}</span>{% endif %}<div class="text-muted" style="font-size:0.72rem">{{ c.floor }}</div></td>
+    <td class="qo-sum-officers"></td>
+    <td class="qo-sum-phones"></td>
+    <td class="qo-sum-emails"></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="text-center text-muted py-4">Δεν υπάρχουν κλινικές/τμήματα. Πρόσθεσέ τα πρώτα στη σελίδα «Κλινικές / Τμήμα».</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div></div>
+
+<div class="d-flex gap-4 flex-wrap mt-3 align-items-end">
+  <div>
+    <label class="form-label mb-1" style="font-size:0.85rem">Τελευταία αναθεώρηση:</label>
+    <input type="date" id="qoLast" class="form-control form-control-sm" style="max-width:180px" value="{{ review.last or '' }}"{% if not can_edit %} disabled{% endif %}>
+  </div>
+  <div>
+    <label class="form-label mb-1" style="font-size:0.85rem">Επόμενη Αναθεώρηση:</label>
+    <input type="date" id="qoNext" class="form-control form-control-sm" style="max-width:180px" value="{{ review.next or '' }}"{% if not can_edit %} disabled{% endif %}>
+  </div>
+  <span id="qoReviewMsg" class="text-success align-self-center" style="font-size:0.8rem"></span>
+</div>
+<div id="qoReviewedBy" class="text-muted mt-1" style="font-size:0.85rem"{% if not review.reviewed_by %} hidden{% endif %}>Αναθεωρήθηκε από: <strong id="qoReviewedByName">{{ review.reviewed_by or '' }}</strong></div>
+
+<div class="modal fade" id="qoReviewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning-subtle">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-warning"></i> Απαιτείται αναθεώρηση</h5>
+      </div>
+      <div class="modal-body">
+        Η σελίδα χρειάζεται αναθεώρηση. Η ημερομηνία επόμενης αναθεώρησης (<strong id="qoReviewModalDate"></strong>) έχει παρέλθει.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qoContactModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-envelope-at"></i> Λίστα Επικοινωνίας</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-muted mb-2" style="font-size:0.82rem">Αντιγράψτε και επικολλήστε στο πεδίο παραληπτών του email σας.</div>
+        <textarea id="qoContactText" class="form-control" rows="8" readonly style="font-size:0.85rem"></textarea>
+      </div>
+      <div class="modal-footer">
+        <span id="qoCopyMsg" class="text-success me-auto" style="font-size:0.85rem"></span>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Κλείσιμο</button>
+        <button type="button" class="btn btn-primary" id="qoCopyBtn"><i class="bi bi-clipboard"></i> Αντιγραφή</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qoAttendChoiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-ui-checks"></i> Παρουσιολόγιο</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="form-check mb-2"><input class="form-check-input" type="radio" name="qoAtMode" id="qoAtNew" value="new" checked>
+          <label class="form-check-label" for="qoAtNew">Νέο παρουσιολόγιο (με τις επιλεγμένες κλινικές)</label></div>
+        <div class="form-check mb-2"><input class="form-check-input" type="radio" name="qoAtMode" id="qoAtEdit" value="edit">
+          <label class="form-check-label" for="qoAtEdit">Επεξεργασία υφιστάμενου (ανοιχτού)</label></div>
+        <div id="qoAtPickWrap" class="mb-1" style="display:none">
+          <label class="form-label mb-1" style="font-size:0.85rem">Επίλεξε ανοιχτό παρουσιολόγιο</label>
+          <select id="qoAttendPick" class="form-select form-select-sm"><option value="">—</option></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="button" class="btn btn-primary" id="qoAttendChoiceGo">Συνέχεια</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qoAttendModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-ui-checks"></i> Παρουσιολόγιο — Στοιχεία εκτύπωσης</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="qoAttendLink"></div>
+        <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Τίτλος</label>
+          <input type="text" id="qoAttendTitle" class="form-control form-control-sm" value="Παρουσιολόγιο"></div>
+        <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Ημερομηνία</label>
+          <input type="date" id="qoAttendDate" class="form-control form-control-sm"></div>
+        <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Λειτουργός Διασφάλισης Ποιότητας</label>
+          <select id="qoAttendOfficer" class="form-select form-select-sm"><option value="" selected>— Επίλεξε —</option></select></div>
+        <label class="form-label mb-1" style="font-size:0.85rem">Συμμετέχοντες</label>
+        <table class="table table-sm table-bordered mb-1"><thead class="table-light"><tr><th>Κλινική / Τμήμα</th><th>Όνομα</th><th>Τηλέφωνα</th><th>Email</th><th style="width:4%"></th></tr></thead><tbody id="qoAttRows"></tbody></table>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="qoAttAddPart"><i class="bi bi-plus-lg"></i> Συμμετέχων</button>
+        <div class="input-group input-group-sm mt-2" style="max-width:460px">
+          <select id="qoAttCatalog" class="form-select"><option value="">— Προσθήκη από Υπευθύνους Ποιότητας —</option></select>
+          <button type="button" class="btn btn-outline-primary" id="qoAttAddFromCat"><i class="bi bi-plus-lg"></i> Προσθήκη</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="button" class="btn btn-success" id="qoAttendPrint"><i class="bi bi-printer"></i> Εκτύπωση & Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qoAgendaModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-list-task"></i> Ατζέντα — Στοιχεία</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-2"><label class="form-label mb-1" style="font-size:0.85rem">Από ανοιχτό Παρουσιολόγιο (προαιρετικά)</label>
+          <select id="agSource" class="form-select form-select-sm"><option value="">— Κανένα / Νέα ατζέντα —</option></select></div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-5"><label class="form-label mb-1" style="font-size:0.85rem">Τίτλος</label>
+            <input type="text" id="agTitle" class="form-control form-control-sm" value="Ατζέντα"></div>
+          <div class="col-md-3"><label class="form-label mb-1" style="font-size:0.85rem">Ημερομηνία</label>
+            <input type="date" id="agDate" class="form-control form-control-sm"></div>
+          <div class="col-md-4"><label class="form-label mb-1" style="font-size:0.85rem">Λειτουργός Διασφάλισης Ποιότητας</label>
+            <select id="agOfficer" class="form-select form-select-sm"><option value="" selected>— Επίλεξε —</option></select></div>
+        </div>
+        <label class="form-label mb-1" style="font-size:0.85rem">Θέματα & Απορρέοντα</label>
+        <table class="table table-sm table-bordered mb-1"><thead class="table-light"><tr><th style="width:48%">Θέμα</th><th style="width:48%">Απορρέον</th><th style="width:4%"></th></tr></thead>
+          <tbody id="agRows"></tbody></table>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="agAddRow"><i class="bi bi-plus-lg"></i> Θέμα</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="button" class="btn btn-success" id="agPrint"><i class="bi bi-printer"></i> Εκτύπωση & Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qoEditModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-badge"></i> <span id="qoEditTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label fw-bold" style="font-size:0.85rem">Υπεύθυνοι Ποιότητας (έως 4)</label>
+        <div id="qoOfficers"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="qoAddOfficer"><i class="bi bi-plus-lg"></i> Υπεύθυνος</button>
+        <hr>
+        <label class="form-label fw-bold" style="font-size:0.85rem">Τηλέφωνα (έως 3)</label>
+        <div id="qoPhones"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="qoAddPhone"><i class="bi bi-plus-lg"></i> Τηλέφωνο</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Κλείσιμο</button>
+        <button type="button" class="btn btn-success" id="qoModalSave"><i class="bi bi-save"></i> Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var QO = {{ qo_map|tojson }};
+  var QA_OFFICERS = {{ qa_officers|tojson }};
+  var QA_HEAD = {{ qa_head|tojson }};
+  var ORIGIN = location.origin;
+  var LOGO1 = ORIGIN + "{{ url_for('static', filename='img/logo_okypy.png') }}";
+  var LOGO2 = ORIGIN + "{{ url_for('static', filename='img/logo_audit.png') }}";
+  var selected=null, modal=null;
+  function esc(t){ t=(t==null?'':''+t); return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function renderSummaries(){
+    var totalOff=0, incomplete=0;
+    var rows=[].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]'));
+    rows.forEach(function(tr){
+      var info=QO[tr.getAttribute('data-name')]||{};
+      var offs=info.officers||[];
+      var phones=info.phones||[];
+      var em=[]; offs.forEach(function(o){ (o.emails||[]).forEach(function(e){ if(e) em.push(e); }); });
+      totalOff += offs.map(function(o){return (o.name||'').trim();}).filter(Boolean).length;
+      var inc = (phones.length===0) || (em.length===0);
+      if(inc) incomplete++;
+      tr.classList.toggle('qo-incomplete', inc);
+      tr.querySelector('.qo-sum-officers').innerHTML = offs.map(function(o){return esc(o.name);}).filter(Boolean).join('<br>') || '<span class="text-muted">—</span>';
+      tr.querySelector('.qo-sum-phones').innerHTML = (info.phones||[]).map(esc).join('<br>') || '<span class="text-muted">—</span>';
+      tr.querySelector('.qo-sum-emails').innerHTML = em.map(esc).join('<br>') || '<span class="text-muted">—</span>';
+    });
+    var so=document.getElementById('qoStatOfficers'); if(so) so.textContent=totalOff;
+    var si=document.getElementById('qoStatIncomplete'); if(si) si.textContent=incomplete;
+    var st=document.getElementById('qoStatTotal'); if(st) st.textContent=rows.length;
+  }
+
+  function refreshModal(){
+    var offs=document.querySelectorAll('#qoOfficers .officer');
+    offs.forEach(function(o){ o.querySelector('.qo-delof').style.display = offs.length>1?'':'none'; });
+    document.getElementById('qoAddOfficer').style.display = offs.length>=4?'none':'';
+    var phs=document.querySelectorAll('#qoPhones .phonerow');
+    phs.forEach(function(p){ p.querySelector('.qo-delph').style.display = phs.length>1?'':'none'; });
+    document.getElementById('qoAddPhone').style.display = phs.length>=3?'none':'';
+  }
+
+  function buildOfficer(o){
+    o=o||{}; var emails=o.emails||[];
+    var w=document.createElement('div'); w.className='officer mb-2 pb-2'; w.style.borderBottom='1px dashed rgba(0,0,0,0.15)';
+    w.innerHTML=''
+      +'<input class="form-control form-control-sm mb-1 qo-name" placeholder="Ονοματεπώνυμο υπευθύνου">'
+      +'<input type="email" class="form-control form-control-sm mb-1 qo-e1" placeholder="email">'
+      +'<input type="email" class="form-control form-control-sm mb-1 qo-e2" placeholder="2ο email" style="display:none">'
+      +'<div class="d-flex gap-3" style="font-size:0.78rem">'
+      +'  <a class="qo-adde2" style="cursor:pointer"><i class="bi bi-plus-circle"></i> 2ο email</a>'
+      +'  <a class="text-danger qo-delof" style="cursor:pointer;display:none"><i class="bi bi-x-circle"></i> αφαίρεση</a>'
+      +'</div>';
+    w.querySelector('.qo-name').value=o.name||'';
+    w.querySelector('.qo-e1').value=emails[0]||'';
+    var e2=w.querySelector('.qo-e2'), adde2=w.querySelector('.qo-adde2');
+    if(emails[1]){ e2.value=emails[1]; e2.style.display=''; adde2.style.display='none'; }
+    adde2.addEventListener('click', function(){ e2.style.display=''; adde2.style.display='none'; e2.focus(); });
+    w.querySelector('.qo-delof').addEventListener('click', function(){ w.remove(); refreshModal(); });
+    return w;
+  }
+  function buildPhone(v){
+    var r=document.createElement('div'); r.className='phonerow d-flex gap-1 mb-1';
+    r.innerHTML='<input class="form-control form-control-sm qo-phone" placeholder="Τηλέφωνο"><a class="text-danger qo-delph align-self-center" style="cursor:pointer;display:none"><i class="bi bi-x-circle"></i></a>';
+    r.querySelector('.qo-phone').value=v||'';
+    r.querySelector('.qo-delph').addEventListener('click', function(){ r.remove(); refreshModal(); });
+    return r;
+  }
+
+  function openEdit(name){
+    if(!name) return;
+    selected=name;
+    [].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).forEach(function(tr){ tr.classList.toggle('table-active', tr.getAttribute('data-name')===name); });
+    document.getElementById('qoEditTitle').textContent=name;
+    var info=QO[name]||{};
+    var offBox=document.getElementById('qoOfficers'); offBox.innerHTML='';
+    var offs=(info.officers&&info.officers.length)?info.officers:[{}];
+    offs.slice(0,4).forEach(function(o){ offBox.appendChild(buildOfficer(o)); });
+    var phBox=document.getElementById('qoPhones'); phBox.innerHTML='';
+    var phs=(info.phones&&info.phones.length)?info.phones:[''];
+    phs.slice(0,3).forEach(function(p){ phBox.appendChild(buildPhone(p)); });
+    refreshModal();
+    if(!modal) modal=new bootstrap.Modal(document.getElementById('qoEditModal'));
+    modal.show();
+  }
+
+  // row click -> select only (edit opens via Επεξεργασία)
+  function selectRow(name){
+    if(!name) return;
+    selected=name;
+    [].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).forEach(function(tr){ tr.classList.toggle('table-active', tr.getAttribute('data-name')===name); });
+  }
+  [].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).forEach(function(tr){
+    tr.addEventListener('click', function(){ selectRow(tr.getAttribute('data-name')); });
+  });
+  // Επεξεργασία button
+  document.getElementById('qoEditBtn').addEventListener('click', function(){
+    if(selected){ openEdit(selected); }
+    else {
+      var first=document.querySelector('#qoTable tbody tr[data-name]');
+      if(first) openEdit(first.getAttribute('data-name'));
+    }
+  });
+  document.getElementById('qoAddOfficer').addEventListener('click', function(){ if(document.querySelectorAll('#qoOfficers .officer').length>=4) return; document.getElementById('qoOfficers').appendChild(buildOfficer({})); refreshModal(); });
+  document.getElementById('qoAddPhone').addEventListener('click', function(){ if(document.querySelectorAll('#qoPhones .phonerow').length>=3) return; document.getElementById('qoPhones').appendChild(buildPhone('')); refreshModal(); });
+
+  document.getElementById('qoModalSave').addEventListener('click', function(){
+    if(!selected) return;
+    var officers=[];
+    document.querySelectorAll('#qoOfficers .officer').forEach(function(o){
+      var nm=o.querySelector('.qo-name').value.trim();
+      var em=[o.querySelector('.qo-e1').value.trim(), o.querySelector('.qo-e2').value.trim()].filter(Boolean);
+      if(nm || em.length) officers.push({name:nm, emails:em});
+    });
+    var phones=[].slice.call(document.querySelectorAll('#qoPhones .qo-phone')).map(function(i){return i.value.trim();}).filter(Boolean);
+    QO[selected]={officers:officers, phones:phones};
+    var btn=this; btn.disabled=true; btn.innerHTML='<i class="bi bi-hourglass-split"></i> Αποθήκευση…';
+    fetch('{{ url_for("quality_officers_save") }}', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(QO)})
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if(j && j.ok){ renderSummaries(); btn.innerHTML='<i class="bi bi-save"></i> Αποθήκευση'; btn.disabled=false; if(modal) modal.hide(); } else { throw new Error('fail'); } })
+      .catch(function(){ btn.innerHTML='<i class="bi bi-x-circle"></i> Σφάλμα'; btn.disabled=false; });
+  });
+
+  renderSummaries();
+
+  // review dates (below table)
+  var reviewMsg=document.getElementById('qoReviewMsg'), rtimer=null;
+  function saveReview(){
+    checkReview();
+    var body={ last:(document.getElementById('qoLast').value||''), next:(document.getElementById('qoNext').value||'') };
+    fetch('{{ url_for("quality_review_save") }}', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(body)})
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if(j&&j.ok){ reviewMsg.textContent='Αποθηκεύτηκε ✓'; if(rtimer) clearTimeout(rtimer); rtimer=setTimeout(function(){ reviewMsg.textContent=''; },1800); var rb=document.getElementById('qoReviewedBy'), rbn=document.getElementById('qoReviewedByName'); if(rbn){ rbn.textContent=(j.reviewed_by||''); } if(rb){ rb.hidden=!(j.reviewed_by); } } });
+  }
+  ['qoLast','qoNext'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change', saveReview); });
+
+  var reviewModal=null;
+  function checkReview(showModal){
+    var al=document.getElementById('qoReviewAlert'); if(!al) return;
+    var nv=(document.getElementById('qoNext').value||'');
+    var overdue=false, disp='';
+    if(nv){ var t=new Date(); t.setHours(0,0,0,0); var nd=new Date(nv+"T00:00:00"); overdue = nd < t; var p=nv.split('-'); disp=p[2]+'/'+p[1]+'/'+p[0]; }
+    if(overdue){
+      var d=document.getElementById('qoReviewAlertDate'); if(d) d.textContent=disp;
+      al.classList.remove('d-none'); al.classList.add('d-flex');
+      if(showModal){
+        var md=document.getElementById('qoReviewModalDate'); if(md) md.textContent=disp;
+        if(!reviewModal) reviewModal=new bootstrap.Modal(document.getElementById('qoReviewModal'));
+        reviewModal.show();
+      }
+    } else {
+      al.classList.add('d-none'); al.classList.remove('d-flex');
+    }
+  }
+  checkReview(false);
+  if(document.readyState==='complete'){ checkReview(true); }
+  else { window.addEventListener('load', function(){ checkReview(true); }); }
+
+  var selCountEl=document.getElementById('qoSelCount'), printBtn=document.getElementById('qoPrint');
+  var contactsBtn=document.getElementById('qoContacts'), selCountEl2=document.getElementById('qoSelCount2');
+  var attendBtn=document.getElementById('qoAttend'), selCountEl3=document.getElementById('qoSelCount3');
+  function updateSel(){ var n=document.querySelectorAll('#qoTable tbody .qo-sel:checked').length; selCountEl.textContent=n; printBtn.disabled=(n===0); if(selCountEl2) selCountEl2.textContent=n; if(contactsBtn) contactsBtn.disabled=(n===0); if(selCountEl3) selCountEl3.textContent=n; }
+  [].slice.call(document.querySelectorAll('#qoTable tbody .qo-sel')).forEach(function(cb){ cb.addEventListener('click', function(e){ e.stopPropagation(); }); cb.addEventListener('change', updateSel); });
+  [].slice.call(document.querySelectorAll('#qoTable .qo-selcell')).forEach(function(td){ td.addEventListener('click', function(e){ e.stopPropagation(); }); });
+  var selAll=document.getElementById('qoSelAll');
+  if(selAll){ selAll.addEventListener('click', function(e){ e.stopPropagation(); }); selAll.addEventListener('change', function(){ [].slice.call(document.querySelectorAll('#qoTable tbody .qo-sel')).forEach(function(cb){ cb.checked=selAll.checked; }); updateSel(); }); }
+  printBtn.addEventListener('click', function(){
+    var rows=[].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).filter(function(tr){ var cb=tr.querySelector('.qo-sel'); return cb && cb.checked; });
+    if(!rows.length) return;
+    var h='<html><head><meta charset="utf-8"><title>Υπεύθυνοι Ποιότητας</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#000} h1{font-size:1.3rem} table{border-collapse:collapse;width:100%;font-size:0.85rem;margin-top:10px} th,td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top} th{background:#eee}</style></head><body><h1>Υπεύθυνοι Ποιότητας — Γενικό Νοσοκομείο Λευκωσίας</h1><table><thead><tr><th>Κλινική / Τμήμα</th><th>Υπεύθυνοι Ποιότητας</th><th>Τηλέφωνα</th><th>Email</th></tr></thead><tbody>';
+    rows.forEach(function(tr){ var name=tr.getAttribute('data-name'); var info=QO[name]||{}; var offs=info.officers||[]; var em=[]; offs.forEach(function(o){(o.emails||[]).forEach(function(e){if(e)em.push(e);});}); h+='<tr><td><strong>'+esc(name)+'</strong></td><td>'+(offs.map(function(o){return esc(o.name);}).filter(Boolean).join('<br>')||'—')+'</td><td>'+((info.phones||[]).map(esc).join('<br>')||'—')+'</td><td>'+(em.map(esc).join('<br>')||'—')+'</td></tr>'; });
+    h+='</tbody></table></body></html>';
+    var w=window.open('','_blank'); if(!w){ alert('Επιτρέψτε τα pop-ups για εκτύπωση.'); return; } w.document.write(h); w.document.close(); w.focus(); setTimeout(function(){ try{w.print();}catch(e){} },350);
+  });
+
+  // Λίστα Επικοινωνίας
+  var contactModal=null;
+  function buildContacts(){
+    var seen={}, entries=[];
+    [].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).forEach(function(tr){
+      var cb=tr.querySelector('.qo-sel'); if(!cb || !cb.checked) return;
+      var info=QO[tr.getAttribute('data-name')]||{};
+      (info.officers||[]).forEach(function(o){
+        var nm=(o.name||'').trim();
+        (o.emails||[]).forEach(function(e){ e=(e||'').trim(); if(!e) return; var k=e.toLowerCase(); if(seen[k]) return; seen[k]=1; entries.push(nm ? (nm+' <'+e+'>') : e); });
+      });
+    });
+    return entries;
+  }
+  if(contactsBtn) contactsBtn.addEventListener('click', function(){
+    var entries=buildContacts();
+    var ta=document.getElementById('qoContactText');
+    ta.value = entries.length ? entries.join('; ') : '(Δεν βρέθηκαν διευθύνσεις email στους επιλεγμένους υπευθύνους.)';
+    var cm=document.getElementById('qoCopyMsg'); if(cm) cm.textContent='';
+    if(!contactModal) contactModal=new bootstrap.Modal(document.getElementById('qoContactModal'));
+    contactModal.show();
+  });
+  var copyBtn=document.getElementById('qoCopyBtn');
+  if(copyBtn) copyBtn.addEventListener('click', function(){
+    var ta=document.getElementById('qoContactText'); if(!ta) return;
+    var cm=document.getElementById('qoCopyMsg');
+    function done(){ if(cm){ cm.textContent='Αντιγράφηκε ✓'; } }
+    ta.focus(); ta.select(); try{ ta.setSelectionRange(0,999999); }catch(e){}
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(done).catch(function(){ try{ document.execCommand('copy'); done(); }catch(e){} });
+    } else { try{ document.execCommand('copy'); done(); }catch(e){} }
+  });
+  // --- Παρουσιολόγιο (attendance sheet) ---
+  var attendModal=null;
+  (function(){
+    var sel=document.getElementById('qoAttendOfficer'); if(!sel) return;
+    var names={};
+    (QA_OFFICERS||[]).forEach(function(n){ n=(n||'').trim(); if(n) names[n]=1; });
+    Object.keys(names).sort(function(a,b){ return a.localeCompare(b,'el'); }).forEach(function(n){ var op=document.createElement('option'); op.value=n; op.textContent=n; sel.appendChild(op); });
+  })();
+  function fmtDate(iso){ if(!iso) return ''; var p=(''+iso).split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : iso; }
+  var qoAttendEditId=null, qoAttendOpen={}, qoAttendChoice=null, qoUnlinkedAgendas=[];
+  function qoBuildLinkUI(mode, doc){
+    var box=document.getElementById('qoAttendLink'); if(!box) return;
+    if(mode==='edit' && doc && doc.agenda){
+      box.innerHTML='<div class="alert alert-info py-1 px-2 mb-2" style="font-size:0.82rem"><i class="bi bi-link-45deg"></i> Συνδεδεμένη ατζέντα: <strong>'+esc(doc.agenda.title||'Ατζέντα')+'</strong>'+(doc.agenda.date?(' — '+esc(doc.agenda.date)):'')+'</div>';
+    } else {
+      var opts='<option value="">— Καμία —</option>';
+      qoUnlinkedAgendas.forEach(function(a){ opts+='<option value="'+a.id+'">'+esc((a.title||'Ατζέντα')+' — '+(a.date||'')+(a.officer?(' — '+a.officer):''))+'</option>'; });
+      box.innerHTML='<div class="mb-2"><label class="form-label mb-1" style="font-size:0.82rem">Σύνδεση με ατζέντα (χωρίς παρουσιολόγιο)</label><select id="qoAttendLinkAgenda" class="form-select form-select-sm">'+opts+'</select></div>';
+    }
+  }
+  function qoSetSelectValue(sel, val){ if(!sel) return; var f=false; [].slice.call(sel.options).forEach(function(op){ if(op.value===val) f=true; }); if(!f && val){ var np=document.createElement('option'); np.value=val; np.textContent=val; sel.appendChild(np); } sel.value=val||''; }
+  function qoCheckClinics(cset){ [].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).forEach(function(tr){ var cb=tr.querySelector('.qo-sel'); if(cb) cb.checked=!!cset[tr.getAttribute('data-name')]; }); updateSel(); }
+  function qoAttAddRow(clinic, name, phones, emails){
+    var tb=document.getElementById('qoAttRows'); if(!tb) return;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><input class="form-control form-control-sm qa-clinic"></td><td><input class="form-control form-control-sm qa-name"></td><td><input class="form-control form-control-sm qa-phones"></td><td><input class="form-control form-control-sm qa-emails"></td><td class="text-center align-middle"><a class="text-danger qa-del" style="cursor:pointer" title="Αφαίρεση"><i class="bi bi-x-circle"></i></a></td>';
+    tb.appendChild(tr);
+    tr.querySelector('.qa-clinic').value=clinic||''; tr.querySelector('.qa-name').value=name||'';
+    tr.querySelector('.qa-phones').value=(phones||[]).join(', '); tr.querySelector('.qa-emails').value=(emails||[]).join(', ');
+    tr.querySelector('.qa-del').addEventListener('click', function(){ tr.remove(); });
+  }
+  function qoFillParts(list){ var tb=document.getElementById('qoAttRows'); if(tb) tb.innerHTML=''; (list||[]).forEach(function(it){ qoAttAddRow(it.clinic, it.officer, it.phones, it.emails); }); }
+  function qoPartsFromChecked(){ var out=[]; [].slice.call(document.querySelectorAll('#qoTable tbody tr[data-name]')).forEach(function(tr){ var cb=tr.querySelector('.qo-sel'); if(!(cb&&cb.checked)) return; var name=tr.getAttribute('data-name'); var info=QO[name]||{}; var offs=info.officers||[]; var phones=(info.phones||[]); if(!offs.length){ out.push({clinic:name, officer:'', phones:phones, emails:[]}); } else offs.forEach(function(oo){ out.push({clinic:name, officer:(oo.name||''), phones:phones, emails:(oo.emails||[])}); }); }); return out; }
+  (function(){ var ab=document.getElementById('qoAttAddPart'); if(ab) ab.addEventListener('click', function(){ qoAttAddRow('','',[],[]); }); })();
+  var qoCatalog=[];
+  (function(){
+    var sel=document.getElementById('qoAttCatalog'); if(!sel) return;
+    Object.keys(QO||{}).sort(function(a,b){ return a.localeCompare(b,'el'); }).forEach(function(clinic){
+      var info=QO[clinic]||{}; var offs=info.officers||[]; var phones=(info.phones||[]);
+      if(!offs.length){ qoCatalog.push({clinic:clinic, officer:'', phones:phones, emails:[]}); var i=qoCatalog.length-1; var op=document.createElement('option'); op.value=i; op.textContent=clinic+' — (χωρίς υπεύθυνο)'; sel.appendChild(op); }
+      else offs.forEach(function(oc){ qoCatalog.push({clinic:clinic, officer:(oc.name||''), phones:phones, emails:(oc.emails||[])}); var i=qoCatalog.length-1; var op=document.createElement('option'); op.value=i; op.textContent=clinic+' — '+(((oc.name||'').trim())||'(χωρίς όνομα)'); sel.appendChild(op); });
+    });
+    var btn=document.getElementById('qoAttAddFromCat');
+    if(btn) btn.addEventListener('click', function(){ var v=sel.value; if(v==='' || !qoCatalog[v]) return; var c=qoCatalog[v]; qoAttAddRow(c.clinic, c.officer, c.phones, c.emails); sel.value=''; });
+  })();
+  function qoOpenAttendModal(){ if(!attendModal) attendModal=new bootstrap.Modal(document.getElementById('qoAttendModal')); attendModal.show(); }
+  if(attendBtn) attendBtn.addEventListener('click', function(){
+    var pick=document.getElementById('qoAttendPick'); qoAttendOpen={};
+    if(pick){ fetch('{{ url_for("qo_open_attendance") }}', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(j){ pick.innerHTML='<option value="">—</option>'; (((j&&j.items)||[])).forEach(function(it){ qoAttendOpen[it.id]=it; var op=document.createElement('option'); op.value=it.id; op.textContent=(it.title||'Παρουσιολόγιο')+' — '+(it.date||'')+(it.officer?(' — '+it.officer):''); pick.appendChild(op); }); }).catch(function(){}); }
+    fetch('{{ url_for("qo_unlinked_agendas") }}', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(j){ qoUnlinkedAgendas=(((j&&j.items)||[])); }).catch(function(){ qoUnlinkedAgendas=[]; });
+    var nw=document.getElementById('qoAtNew'); if(nw) nw.checked=true;
+    var pw=document.getElementById('qoAtPickWrap'); if(pw) pw.style.display='none';
+    if(!qoAttendChoice) qoAttendChoice=new bootstrap.Modal(document.getElementById('qoAttendChoiceModal'));
+    qoAttendChoice.show();
+  });
+  (function(){ var rN=document.getElementById('qoAtNew'), rE=document.getElementById('qoAtEdit'), pw=document.getElementById('qoAtPickWrap'); function upd(){ if(pw) pw.style.display=(rE && rE.checked)?'':'none'; } if(rN) rN.addEventListener('change', upd); if(rE) rE.addEventListener('change', upd); })();
+  var qoChoiceGo=document.getElementById('qoAttendChoiceGo');
+  if(qoChoiceGo) qoChoiceGo.addEventListener('click', function(){
+    var edit=document.getElementById('qoAtEdit') && document.getElementById('qoAtEdit').checked;
+    var dflt=document.getElementById('qoAttendDate');
+    if(!edit){
+      if(!document.querySelectorAll('#qoTable tbody .qo-sel:checked').length){ alert('Επίλεξε τουλάχιστον μία κλινική/τμήμα από τον κατάλογο.'); return; }
+      qoAttendEditId=null;
+      var tt=document.getElementById('qoAttendTitle'); if(tt) tt.value='Παρουσιολόγιο';
+      if(dflt){ var t=new Date(); dflt.value=t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2); }
+      qoSetSelectValue(document.getElementById('qoAttendOfficer'), '');
+      qoBuildLinkUI('new', null);
+      var _pbn=document.getElementById('qoAttendPrint'); if(_pbn) _pbn.innerHTML='<i class="bi bi-printer"></i> Εκτύπωση & Αποθήκευση';
+      qoFillParts(qoPartsFromChecked());
+    } else {
+      var pick=document.getElementById('qoAttendPick'); var doc=pick?qoAttendOpen[pick.value]:null;
+      if(!doc){ alert('Επίλεξε ένα ανοιχτό παρουσιολόγιο.'); return; }
+      qoAttendEditId=doc.id;
+      var tt2=document.getElementById('qoAttendTitle'); if(tt2) tt2.value=doc.title||'Παρουσιολόγιο';
+      if(dflt) dflt.value=doc.date||'';
+      qoSetSelectValue(document.getElementById('qoAttendOfficer'), doc.officer||'');
+      var cs={}; (doc.data||[]).forEach(function(it){ if(it && it.clinic) cs[it.clinic]=1; });
+      qoCheckClinics(cs);
+      qoBuildLinkUI('edit', doc);
+      var _pbe=document.getElementById('qoAttendPrint'); if(_pbe) _pbe.innerHTML='<i class="bi bi-printer"></i> Εκτύπωση & Αποθήκευση';
+      qoFillParts(doc.data||[]);
+    }
+    if(qoAttendChoice) qoAttendChoice.hide();
+    qoOpenAttendModal();
+  });
+  var attendPrint=document.getElementById('qoAttendPrint');
+  if(attendPrint) attendPrint.addEventListener('click', function(){
+    var parts=[];
+    [].slice.call(document.querySelectorAll('#qoAttRows tr')).forEach(function(tr){ var clinic=(tr.querySelector('.qa-clinic').value||'').trim(); var nm=(tr.querySelector('.qa-name').value||'').trim(); var ph=(tr.querySelector('.qa-phones').value||'').split(',').map(function(x){return x.trim();}).filter(Boolean); var em=(tr.querySelector('.qa-emails').value||'').split(',').map(function(x){return x.trim();}).filter(Boolean); if(clinic||nm||ph.length||em.length) parts.push({clinic:clinic, officer:nm, phones:ph, emails:em}); });
+    if(!parts.length){ alert('Πρόσθεσε τουλάχιστον έναν συμμετέχοντα.'); return; }
+    try{ fetch('{{ url_for("qo_doc_save") }}', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({type:'attendance', id:qoAttendEditId, link_agenda_id:(document.getElementById('qoAttendLinkAgenda')?(document.getElementById('qoAttendLinkAgenda').value||null):null), title:(document.getElementById('qoAttendTitle').value||'Παρουσιολόγιο').trim(), date:document.getElementById('qoAttendDate').value, officer:(document.getElementById('qoAttendOfficer').value||'').trim(), data:parts})}); }catch(e){}
+    var title=esc((document.getElementById('qoAttendTitle').value||'Παρουσιολόγιο').trim());
+    var dateVal=fmtDate(document.getElementById('qoAttendDate').value);
+    var officer=esc((document.getElementById('qoAttendOfficer').value||'').trim());
+    var head='<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:6px">'
+      +'<img src="'+LOGO1+'" style="height:58px;width:auto">'
+      +'<div style="text-align:center"><div style="font-size:1.25rem;font-weight:bold">'+title+'</div>'
+      +'<div style="font-size:0.9rem">Γενικό Νοσοκομείο Λευκωσίας</div>'
+      +'<div style="font-size:0.9rem">Ημερομηνία: '+esc(dateVal)+'</div></div>'
+      +'<img src="'+LOGO2+'" style="height:58px;width:auto"></div>'
+      +'<div style="text-align:center;color:#555;font-size:0.78rem;margin-bottom:10px">Accreditation Canada - Platinum</div>';
+    var tbl='<table><thead><tr><th>Κλινική / Τμήμα</th><th>Συμμετέχων</th><th>Τηλέφωνα</th><th>Email</th><th style="width:170px">Υπογραφή</th></tr></thead><tbody>';
+    parts.forEach(function(p){ var ph=((p.phones||[]).map(esc).join('<br>'))||'—'; var em=((p.emails||[]).map(esc).join('<br>'))||'—'; tbl+='<tr><td><strong>'+esc(p.clinic)+'</strong></td><td>'+(esc(p.officer)||'—')+'</td><td>'+ph+'</td><td>'+em+'</td><td class="sig"></td></tr>'; });
+    tbl+='</tbody></table>';
+    var foot='<div style="margin-top:34px;font-size:0.9rem"><div>Λειτουργός Διασφάλισης Ποιότητας: <strong>'+(officer||'…………………………………')+'</strong></div>'
+      +'<div style="margin-top:34px">Υπογραφή: ______________________________</div></div>';
+    var h='<html><head><meta charset="utf-8"><title>'+title+'</title><style>@page{size:A4;margin:14mm} body{font-family:Arial,sans-serif;color:#000} table{border-collapse:collapse;width:100%;font-size:0.82rem;margin-top:6px} th,td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top} th{background:#eee} td.sig{height:38px}</style></head><body>'+head+tbl+foot+'</body></html>';
+    var w=window.open('','_blank'); if(!w){ alert('Επιτρέψτε τα pop-ups για εκτύπωση.'); return; } w.document.write(h); w.document.close(); w.focus(); setTimeout(function(){ try{w.print();}catch(e){} },400);
+    if(attendModal) attendModal.hide();
+  });
+
+  // --- κοινή επικεφαλίδα εκτύπωσης (logos) ---
+  function qoPrintHeader(titleEsc, dateEsc){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:6px">'
+      +'<img src="'+LOGO1+'" style="height:58px;width:auto">'
+      +'<div style="text-align:center"><div style="font-size:1.25rem;font-weight:bold">'+titleEsc+'</div>'
+      +'<div style="font-size:0.9rem">Γενικό Νοσοκομείο Λευκωσίας</div>'
+      +'<div style="font-size:0.9rem">Ημερομηνία: '+dateEsc+'</div></div>'
+      +'<img src="'+LOGO2+'" style="height:58px;width:auto"></div>'
+      +'<div style="text-align:center;color:#555;font-size:0.78rem;margin-bottom:10px">Accreditation Canada - Platinum</div>';
+  }
+  // --- Ατζέντα ---
+  var agendaModal=null;
+  var agSourceData={};
+  (function(){ var sel=document.getElementById('agOfficer'); if(!sel) return; (QA_OFFICERS||[]).slice().sort(function(a,b){ return a.localeCompare(b,'el'); }).forEach(function(n){ n=(n||'').trim(); if(!n) return; var op=document.createElement('option'); op.value=n; op.textContent=n; sel.appendChild(op); }); })();
+  function agAddRow(topic, outcome){
+    var tb=document.getElementById('agRows'); if(!tb) return;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><textarea class="form-control form-control-sm ag-topic" rows="2"></textarea></td><td><textarea class="form-control form-control-sm ag-out" rows="2"></textarea></td><td class="text-center align-middle"><a class="text-danger ag-del" style="cursor:pointer" title="Αφαίρεση"><i class="bi bi-x-circle"></i></a></td>';
+    tb.appendChild(tr);
+    if(topic) tr.querySelector('.ag-topic').value=topic;
+    if(outcome) tr.querySelector('.ag-out').value=outcome;
+    tr.querySelector('.ag-del').addEventListener('click', function(){ tr.remove(); });
+  }
+  var agAdd=document.getElementById('agAddRow'); if(agAdd) agAdd.addEventListener('click', function(){ agAddRow('',''); });
+  var agendaBtn=document.getElementById('qoAgenda');
+  if(agendaBtn) agendaBtn.addEventListener('click', function(){
+    var d=document.getElementById('agDate'); if(d && !d.value){ var t=new Date(); d.value=t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2); }
+    if(!document.querySelectorAll('#agRows tr').length){ agAddRow('',''); agAddRow('',''); agAddRow('',''); }
+    var ssel=document.getElementById('agSource');
+    if(ssel){ fetch('{{ url_for("qo_open_attendance") }}', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(j){ ssel.innerHTML='<option value="">— Κανένα / Νέα ατζέντα —</option>'; agSourceData={}; (((j&&j.items)||[])).forEach(function(it){ if(it.agenda) return; agSourceData[it.id]=it; var op=document.createElement('option'); op.value=it.id; op.textContent=(it.title||'Παρουσιολόγιο')+' — '+(it.date||'')+(it.officer?(' — '+it.officer):''); ssel.appendChild(op); }); }).catch(function(){}); }
+    if(!agendaModal) agendaModal=new bootstrap.Modal(document.getElementById('qoAgendaModal'));
+    agendaModal.show();
+  });
+  var agSrcSel=document.getElementById('agSource');
+  if(agSrcSel) agSrcSel.addEventListener('change', function(){
+    var doc=agSourceData[agSrcSel.value]; if(!doc) return;
+    if(doc.title){ var tt=document.getElementById('agTitle'); if(tt) tt.value=doc.title; }
+    if(doc.date){ var dd=document.getElementById('agDate'); if(dd) dd.value=doc.date; }
+    if(doc.officer){ var oo=document.getElementById('agOfficer'); if(oo){ var found=false; [].slice.call(oo.options).forEach(function(op){ if(op.value===doc.officer) found=true; }); if(!found){ var np=document.createElement('option'); np.value=doc.officer; np.textContent=doc.officer; oo.appendChild(np); } oo.value=doc.officer; } }
+  });
+  var agPrint=document.getElementById('agPrint');
+  if(agPrint) agPrint.addEventListener('click', function(){
+    var title=(document.getElementById('agTitle').value||'Ατζέντα').trim();
+    var dateVal=document.getElementById('agDate').value;
+    var officer=(document.getElementById('agOfficer').value||'').trim();
+    var items=[];
+    [].slice.call(document.querySelectorAll('#agRows tr')).forEach(function(tr){ var tp=(tr.querySelector('.ag-topic').value||'').trim(); var ou=(tr.querySelector('.ag-out').value||'').trim(); if(tp||ou) items.push({topic:tp, outcome:ou}); });
+    if(!items.length){ alert('Πρόσθεσε τουλάχιστον ένα θέμα.'); return; }
+    try{ fetch('{{ url_for("qo_doc_save") }}', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({type:'agenda', title:title, date:dateVal, officer:officer, source_id:(document.getElementById('agSource')?(document.getElementById('agSource').value||null):null), data:items})}); }catch(e){}
+    var head=qoPrintHeader(esc(title), esc(fmtDate(dateVal)));
+    var tbl='<table><thead><tr><th style="width:50%">Θέματα</th><th style="width:50%">Απορρέοντα</th></tr></thead><tbody>';
+    items.forEach(function(it){ tbl+='<tr><td>'+esc(it.topic).replace(/\n/g,'<br>')+'</td><td>'+esc(it.outcome).replace(/\n/g,'<br>')+'</td></tr>'; });
+    tbl+='</tbody></table>';
+    var foot='<div style="margin-top:34px;font-size:0.9rem"><div>Λειτουργός Διασφάλισης Ποιότητας: <strong>'+(esc(officer)||'…………………………………')+'</strong></div><div style="margin-top:34px">Υπογραφή: ______________________________</div></div>';
+    var h='<html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>@page{size:A4;margin:14mm} body{font-family:Arial,sans-serif;color:#000} table{border-collapse:collapse;width:100%;font-size:0.85rem;margin-top:6px} th,td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top} th{background:#eee}</style></head><body>'+head+tbl+foot+'</body></html>';
+    var w=window.open('','_blank'); if(!w){ alert('Επιτρέψτε τα pop-ups για εκτύπωση.'); return; } w.document.write(h); w.document.close(); w.focus(); setTimeout(function(){ try{w.print();}catch(e){} },400);
+    if(agendaModal) agendaModal.hide();
+  });
+
+  updateSel();
+})();
+</script>
+{% endblock %}

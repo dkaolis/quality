@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Ημερολόγιο Εκπαιδεύσεων{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div><h2><i class="bi bi-calendar3"></i> Ημερολόγιο Προγραμματισμένων Εκπαιδεύσεων</h2>
+  <div class="text-muted">Μονάδα Διασφάλισης Ποιότητας</div></div>
+  <a href="{{ url_for('training_scheduled') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul"></i> Λίστα</a>
+</div>
+<div class="card"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="{{ url_for('training_scheduled_calendar', year=prev_y, month=prev_m) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+    <h5 class="mb-0">{{ month_name }} {{ year }}</h5>
+    <a href="{{ url_for('training_scheduled_calendar', year=next_y, month=next_m) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+  </div>
+  <div class="table-responsive">
+  <table class="table table-bordered mb-0" style="table-layout:fixed">
+    <thead class="table-light"><tr>
+      <th class="text-center">Δευ</th><th class="text-center">Τρί</th><th class="text-center">Τετ</th><th class="text-center">Πέμ</th><th class="text-center">Παρ</th><th class="text-center">Σάβ</th><th class="text-center">Κυρ</th>
+    </tr></thead>
+    <tbody>
+    {% for week in weeks %}
+    <tr>
+      {% for day in week %}
+      <td style="height:120px; vertical-align:top; {% if day==0 %}background:#f8f9fa{% endif %}">
+        {% if day>0 %}
+        <div class="mb-1">
+          <span class="{% if day==today.day and month==today.month and year==today.year %}badge bg-primary{% else %}fw-semibold text-muted{% endif %}">{{ day }}</span>
+        </div>
+        {% for t in by_day.get(day, []) %}
+        <div class="mb-1 px-1 py-1 rounded" style="background:#0d9488; color:#fff; font-size:0.72rem; line-height:1.15" title="{{ t.person_name }} — {{ t.title }}{% if t.provider %} ({{ t.provider }}){% endif %}">
+          <strong>{{ t.person_name }}</strong>{% if t.title %}<br>{{ t.title }}{% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div></div>
+{% endblock %}

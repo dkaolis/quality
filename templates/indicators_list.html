@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-center">
     <h2><i class="bi bi-list-check"></i> Ορισμοί Δεικτών{% if sel_grp %} — {{ sel_grp }}{% endif %}</h2>
-    {% if session.role in ('admin', 'central') %}
+    {% if can_add %}
     <a href="{{ url_for('indicator_new') }}" class="btn btn-success btn-action">
         <i class="bi bi-plus-lg"></i> Νέος Δείκτης
     </a>
@@ -15,10 +15,10 @@
         <form method="get" class="row g-2 align-items-center">
             <div class="col-auto"><label class="form-label mb-0">Κατηγορία:</label></div>
             <div class="col-md-4">
-                <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="grp" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">Όλες</option>
-                    {% for c in categories %}
-                    <option value="{{ c }}" {% if c == sel_category %}selected{% endif %}>{{ c }}</option>
+                    {% for g in groups %}
+                    <option value="{{ g }}" {% if g == sel_grp %}selected{% endif %}>{{ g }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -56,10 +56,14 @@
                     <td class="text-end">{{ i.max_score|fmtnum if i.max_score is not none else '—' }}</td>
                     <td>{% if i.active %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}</td>
                     <td class="text-end">
-                        {% if session.role in ('admin', 'central') %}
-                        <a href="{{ url_for('indicator_edit', ind_id=i.id) }}" class="btn btn-sm btn-outline-secondary" title="Επεξεργασία">
+                        <a href="{{ url_for('indicator_edit', ind_id=i.id) }}" class="btn btn-sm btn-outline-secondary" title="Άνοιγμα / Επεξεργασία">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% if can_delete %}
+                        <form method="post" action="{{ url_for('indicator_delete', ind_id=i.id) }}" class="d-inline"
+                              onsubmit="return confirm('Οριστική διαγραφή του δείκτη «{{ i.code }}»; Θα διαγραφούν και οι καταχωρημένες τιμές του. Η ενέργεια δεν αναιρείται.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Διαγραφή δείκτη"><i class="bi bi-trash"></i></button>
+                        </form>
                         {% endif %}
                     </td>
                 </tr>

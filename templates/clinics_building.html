@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}Κλινικές / Τμήματα{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h2><i class="bi bi-hospital"></i> Κλινικές / Τμήματα</h2>
+      <div class="text-muted" style="font-size:0.85rem">Γενικό Νοσοκομείο Λευκωσίας — τομή κτιρίου. <i class="bi bi-arrows-move"></i> Σύρε ένα τμήμα για να το μεταφέρεις σε άλλον όροφο ή θέση.</div>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <span id="dirtyBadge" class="badge bg-warning text-dark" style="display:none">Μη αποθηκευμένες αλλαγές</span>
+      <button id="addRoom" class="btn btn-primary btn-sm"{% if not can_edit %} style="display:none"{% endif %}><i class="bi bi-plus-lg"></i> Νέα Κλινική / Τμήμα</button>
+      <button id="delRoom" class="btn btn-outline-danger btn-sm" style="display:none"><i class="bi bi-trash"></i> Διαγραφή</button>
+      <button id="saveLayout" class="btn btn-success btn-sm"{% if not can_edit %} style="display:none"{% endif %}><i class="bi bi-save"></i> Αποθήκευση διάταξης</button>
+    </div>
+</div>
+{% if not can_edit %}<div class="alert alert-info py-2 px-3 mb-3" style="font-size:0.85rem"><i class="bi bi-eye"></i> Έχετε δικαίωμα <strong>προβολής μόνο</strong> — δεν μπορείτε να τροποποιήσετε αυτή τη σελίδα.</div>{% endif %}
+
+<style>
+.bld-wrap{ --sky1:#eaf4ff; --sky2:#f7fbff; }
+.building{ position:relative; background:linear-gradient(180deg,var(--sky1),var(--sky2)); border-radius:14px; padding:18px 34px 0; box-shadow:0 8px 28px rgba(0,0,0,0.08); overflow:hidden; }
+.building::before, .building::after{ content:''; position:absolute; top:72px; bottom:18px; width:18px; z-index:0; border-radius:9px 9px 0 0; background:linear-gradient(90deg,#8ea0b4 0%,#eef4fa 42%,#d6e0ea 58%,#7f93a8 100%); box-shadow:0 4px 10px rgba(0,0,0,0.18); }
+.building::before{ left:11px; } .building::after{ right:11px; }
+.roof{ background:linear-gradient(135deg,#0d6efd,#0a58ca); color:#fff; border-radius:12px 12px 4px 4px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 4px 12px rgba(13,110,253,0.35); }
+.roof .cross{ background:#fff; color:#dc3545; width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:900; box-shadow:0 2px 6px rgba(0,0,0,0.2); }
+.roof .title{ font-weight:700; letter-spacing:0.3px; }
+.roof .sub{ font-size:0.72rem; opacity:0.9 }
+.floor{ position:relative; z-index:1; display:flex; align-items:stretch; border-radius:10px; margin-bottom:16px; overflow:hidden; box-shadow:0 6px 0 rgba(0,0,0,0.10), 0 14px 20px rgba(0,0,0,0.14); transition:transform 0.15s, box-shadow 0.15s; }
+.floor:hover{ transform:translateX(3px); box-shadow:0 6px 0 rgba(0,0,0,0.12), 0 18px 28px rgba(0,0,0,0.2); }
+.floor .lvl{ flex:0 0 118px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:12px 8px; border-right:2px solid rgba(0,0,0,0.12); font-weight:700; font-size:0.82rem; text-align:center; color:#2b3a4a; background:rgba(255,255,255,0.40); }
+.floor .lvl .cnt{ font-weight:400; font-size:0.7rem; color:#6c757d; margin-top:2px }
+.rooms{ flex:1; display:flex; flex-wrap:wrap; gap:8px; padding:12px; align-content:center; min-height:58px; transition:background 0.12s; }
+.rooms.drop-hot{ background:rgba(13,110,253,0.1); outline:2px dashed #0d6efd; outline-offset:-4px; }
+.room{ display:inline-flex; align-items:center; gap:7px; background:#edf0f3; color:#212529; border:1px solid rgba(0,0,0,0.10); border-left:5px solid #888; border-radius:9px; padding:7px 12px; font-size:0.84rem; font-weight:600; cursor:grab; transition:transform 0.12s, box-shadow 0.12s; box-shadow:0 1px 2px rgba(0,0,0,0.05); user-select:none; }
+.room:hover{ transform:translateY(-3px); box-shadow:0 6px 16px rgba(0,0,0,0.15); }
+.room:active{ cursor:grabbing; }
+.room.active{ outline:2px solid #0d6efd; outline-offset:1px; }
+.room.dragging{ opacity:0.4; }
+.room .grip{ color:#adb5bd; font-size:0.8rem; }
+.ground{ position:relative; z-index:1; height:18px; background:linear-gradient(180deg,#a7a7a7,#787878); border-radius:4px; box-shadow:0 7px 16px rgba(0,0,0,0.3); margin-top:6px; }
+.legend-chip{ display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; padding:3px 8px; border-radius:20px; background:rgba(0,0,0,0.04); }
+:root:not([data-theme="light"]) .legend-chip, :root[data-theme="dark"] .legend-chip{ background:rgba(255,255,255,0.06); }
+.legend-dot{ width:11px; height:11px; border-radius:50%; display:inline-block }
+.detail-empty{ color:#9aa3ad; }
+.stat-big{ font-size:1.8rem; font-weight:800; line-height:1 }
+</style>
+
+<div class="bld-wrap">
+<datalist id="clinicDeptList">{% for dn in departments %}<option value="{{ dn }}"></option>{% endfor %}</datalist>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="building" id="building">
+      <div class="roof">
+        <div>
+          <div class="title">ΓΕΝΙΚΟ ΝΟΣΟΚΟΜΕΙΟ ΛΕΥΚΩΣΙΑΣ</div>
+          <div class="sub">Τομή κτιρίου · {{ floors|length }} επίπεδα · {{ floors|map(attribute='depts')|map('length')|sum }} τμήματα</div>
+        </div>
+        <div class="cross">+</div>
+      </div>
+      {% set palette = ['#fde7ea','#e6f0fd','#e8f7ee','#fff3e0','#f1e9fb','#e0f6fa'] %}
+      {% for f in floors %}
+      <div class="floor" data-level="{{ f.level }}" style="background:{{ palette[loop.index0 % 6] }}">
+        <div class="lvl">{{ f.level }}<span class="cnt">{{ f.depts|length }} τμήμ.</span></div>
+        <div class="rooms">
+          {% for d in f.depts %}
+          {% set m = type_meta[d.type] %}
+          <div class="room" draggable="{% if can_edit %}true{% else %}false{% endif %}" style="border-left-color:{{ m[1] }}"
+               data-name="{{ d.name }}" data-type="{{ d.type }}" data-cat="{{ m[0] }}" data-color="{{ m[1] }}"
+               data-icon="{{ m[2] }}" data-department="{{ d.department or '' }}" data-certs="{{ (d.certs or [])|join('|') }}">
+            <i class="bi bi-grip-vertical grip"></i>
+            <i class="bi {{ m[2] }}" style="color:{{ m[1] }}"></i> <span class="rname">{{ d.name }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="ground"></div>
+    </div>
+    <div class="row g-3 mt-1">
+      <div class="col-md-7">
+        <div class="card h-100"><div class="card-body">
+          <div class="row text-center">
+            <div class="col-4 border-end">
+              <div class="stat-big text-primary" id="statDepts">{{ floors|map(attribute='depts')|map('length')|sum }}</div>
+              <div class="text-muted" style="font-size:0.76rem">Τμήματα / Κλινικές</div>
+            </div>
+            <div class="col-4 border-end">
+              <div class="stat-big" style="color:#e0a800" id="statCertified">{{ certified }}</div>
+              <div class="text-muted" style="font-size:0.76rem">Πιστοποιημένα/ες</div>
+            </div>
+            <div class="col-4">
+              <div class="stat-big text-primary" id="statFloors">{{ floors|length }}</div>
+              <div class="text-muted" style="font-size:0.76rem">Επίπεδα κτιρίου</div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <div class="col-md-5">
+        <div class="card h-100"><div class="card-body">
+          <h6 class="mb-2"><i class="bi bi-palette"></i> Τομείς</h6>
+          <div class="d-flex flex-wrap gap-2">
+            {% for key, m in type_meta.items() %}
+            <span class="legend-chip"><span class="legend-dot" style="background:{{ m[1] }}"></span> {{ m[0] }}</span>
+            {% endfor %}
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-body" id="detailPanel">
+        <div class="text-center detail-empty py-4">
+          <i class="bi bi-hand-index-thumb" style="font-size:2rem"></i>
+          <div class="mt-2">Επίλεξε ένα τμήμα για λεπτομέρειες, ή σύρε το για αναδιάταξη.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="modal fade" id="addRoomModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-plus-square"></i> Νέο Τμήμα / Κλινική</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Τομέας</label>
+          <select id="newType" class="form-select"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Όνομα Τμήματος</label>
+          <input id="newName" class="form-control" list="clinicDeptList" autocomplete="off" placeholder="Επίλεξε ή πληκτρολόγησε τμήμα">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Όροφος</label>
+          <select id="newFloor" class="form-select"></select>
+        </div>
+        <div class="mb-1">
+          <label class="form-label">Πιστοποιήσεις</label>
+          {% for cert in clinic_certs %}
+          <div class="form-check"><input class="form-check-input newcert" type="checkbox" value="{{ cert }}" id="nc{{ loop.index0 }}"><label class="form-check-label" for="nc{{ loop.index0 }}">{{ cert }}</label></div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Άκυρο</button>
+        <button type="button" id="addRoomConfirm" class="btn btn-success"><i class="bi bi-plus-lg"></i> Προσθήκη</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var building=document.getElementById('building');
+  var panel=document.getElementById('detailPanel');
+  var CAN_EDIT = {{ 'true' if can_edit else 'false' }};
+  var dirty=document.getElementById('dirtyBadge');
+  var dragEl=null, selectedRoom=null;
+  var CLINIC_CERTS = {{ clinic_certs|tojson }};
+  function updateCertCount(){
+    var el=document.getElementById('statCertified'); if(!el) return;
+    el.textContent=[].slice.call(building.querySelectorAll('.room')).filter(function(r){ return (r.getAttribute('data-certs')||'').split('|').filter(Boolean).length>0; }).length;
+  }
+  function addDeptOption(name){
+    name=(name||'').trim(); if(!name) return;
+    var dl=document.getElementById('clinicDeptList'); if(!dl) return;
+    var exists=[].slice.call(dl.options).some(function(o){ return o.value.trim().toLowerCase()===name.toLowerCase(); });
+    if(!exists){ var o=document.createElement('option'); o.value=name; dl.appendChild(o); }
+  }
+  function applyCerts(room){
+    var certs=(room.getAttribute('data-certs')||'').split('|').filter(Boolean);
+    var old=room.querySelector('.cert-crown'); if(old) old.remove();
+    if(certs.length){
+      var c=document.createElement('span'); c.className='cert-crown'; c.textContent=' 👑'; c.style.marginLeft='3px';
+      room.appendChild(c);
+      room.setAttribute('title', 'Πιστοποιήσεις: '+certs.join(', '));
+    } else { room.removeAttribute('title'); }
+    updateCertCount();
+  }
+
+  function markDirty(){ dirty.style.display=''; }
+
+  function esc(t){ t=(t==null?'':''+t); return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function showDetail(r){
+    building.querySelectorAll('.room').forEach(function(x){x.classList.remove('active');});
+    r.classList.add('active');
+    selectedRoom=r; var _db=document.getElementById('delRoom'); if(_db && CAN_EDIT) _db.style.display='';
+    var name=r.getAttribute('data-name'), cat=r.getAttribute('data-cat'),
+        color=r.getAttribute('data-color'), icon=r.getAttribute('data-icon'),
+        floor=r.closest('.floor').getAttribute('data-level');
+    var roomCerts=(r.getAttribute('data-certs')||'').split('|').filter(Boolean);
+    var certHtml=CLINIC_CERTS.map(function(cc,idx){ var ck=roomCerts.indexOf(cc)>=0?' checked':''; return '<div class="form-check"><input class="form-check-input certchk" type="checkbox" value="'+esc(cc)+'" id="cc'+idx+'"'+ck+'><label class="form-check-label" style="font-size:0.82rem" for="cc'+idx+'">'+esc(cc)+'</label></div>'; }).join('');
+    panel.innerHTML=''
+      +'<div class="d-flex align-items-center gap-3 mb-3">'
+      +'  <div style="width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:'+color+'22">'
+      +'    <i class="bi '+icon+'" style="font-size:1.6rem;color:'+color+'"></i></div>'
+      +'  <div><div class="fw-bold hdr-name" style="font-size:1.15rem">'+esc(name)+'</div>'
+      +'  <span class="badge" style="background:'+color+'">'+esc(cat)+'</span></div>'
+      +'</div>'
+      +'<table class="table table-sm" style="font-size:0.88rem">'
+      +'<tr><th style="width:120px">Επίπεδο</th><td><i class="bi bi-building"></i> '+esc(floor)+'</td></tr>'
+      +'<tr><th>Τομέας</th><td>'+esc(cat)+'</td></tr>'
+      +'</table>'
+      +'<label class="form-label mb-1" style="font-size:0.82rem"><i class="bi bi-tag"></i> Όνομα Κλινικής / Τμήματος</label>'
+      +'<input id="nameInput" class="form-control form-control-sm" list="clinicDeptList" autocomplete="off" placeholder="Επίλεξε ή πληκτρολόγησε τμήμα" value="'+esc(name)+'"'+(CAN_EDIT?'':' readonly')+'>'
+      +'<label class="form-label mb-1 mt-2" style="font-size:0.82rem"><i class="bi bi-link-45deg"></i> Τμήμα επιθεώρησης (Audit Tools)</label>'
+      +'<input id="depInput" class="form-control form-control-sm" list="clinicDeptList" autocomplete="off" placeholder="Ίδιο με το όνομα" value="'+esc(effDept(r)===name?'':effDept(r))+'"'+(CAN_EDIT?'':' readonly')+'>'
+      +'<div class="form-text" style="font-size:0.72rem">Κενό = ίδιο με το όνομα. Αν επιθεωρείται μαζί με άλλη κλινική (π.χ. Παθολογική Α΄ &amp; Β΄), γράψε το κοινό τμήμα επιθεώρησης (π.χ. «Παθολογική»).</div>'
+      +'<div id="depLinked" class="mt-2" style="font-size:0.82rem"></div>'
+      +'<div class="mt-2"><div class="mb-1" style="font-size:0.82rem; font-weight:600"><i class="bi bi-award"></i> Πιστοποιήσεις</div>'+certHtml+'</div>'
+      +'<div id="deptData" class="mt-3"></div>';
+    var ni=document.getElementById('nameInput'), di=document.getElementById('depInput');
+    function sync(){
+      var nv=(ni.value||'').trim(), dv=(di.value||'').trim();
+      r.setAttribute('data-name', nv);
+      r.setAttribute('data-department', (dv && dv.toLowerCase()!==nv.toLowerCase()) ? dv : '');
+      var rn=r.querySelector('.rname'); if(rn) rn.textContent=nv;
+      var h=panel.querySelector('.hdr-name'); if(h) h.textContent=nv;
+      markDirty();
+    }
+    function renderLinked(){
+      var box=document.getElementById('depLinked');
+      var nv=(r.getAttribute('data-name')||'').trim(), dv=effDept(r);
+      if(!nv){ box.innerHTML='<div class="text-muted"><i class="bi bi-info-circle"></i> Δεν έχει οριστεί όνομα.</div>'; return; }
+      var key=dv.toLowerCase();
+      var shared=[].slice.call(building.querySelectorAll('.room')).filter(function(x){ return x!==r && effDept(x).toLowerCase()===key; }).map(function(x){ return x.getAttribute('data-name'); });
+      box.innerHTML='<div class="alert alert-success py-2 mb-0"><i class="bi bi-check2-circle"></i> Επιθεωρήσεις από το τμήμα: <strong>'+esc(dv)+'</strong>'
+        +(shared.length?'<div class="mt-1" style="font-size:0.78rem"><i class="bi bi-diagram-2"></i> Κοινό με: '+shared.map(esc).join(', ')+'</div>':'')
+        +'</div>';
+    }
+    function refresh(){ sync(); renderLinked(); loadDeptData(r); addDeptOption((ni.value||'').trim()); addDeptOption((di.value||'').trim()); }
+    ni.addEventListener('input', sync); di.addEventListener('input', sync);
+    ni.addEventListener('change', refresh); di.addEventListener('change', refresh);
+    renderLinked();
+    loadDeptData(r);
+    panel.querySelectorAll('.certchk').forEach(function(cb){ cb.addEventListener('change', function(){
+      var sel=[].slice.call(panel.querySelectorAll('.certchk:checked')).map(function(x){return x.value;});
+      r.setAttribute('data-certs', sel.join('|')); applyCerts(r); markDirty();
+    }); });
+  }
+
+  // Τμήμα επιθεώρησης της κάρτας: data-department, ή (κενό) το ίδιο το όνομα.
+  function effDept(room){
+    return ((room.getAttribute('data-department')||'').trim()) || ((room.getAttribute('data-name')||'').trim());
+  }
+  function loadDeptData(room){
+    var box=document.getElementById('deptData'); if(!box) return;
+    var nm=(room.getAttribute('data-name')||'').trim();
+    if(!nm){ box.innerHTML=''; return; }
+    box.innerHTML='<div class="text-muted" style="font-size:0.8rem"><i class="bi bi-hourglass-split"></i> Φόρτωση δεδομένων τμήματος…</div>';
+    fetch('{{ url_for("clinics_dept_data") }}?name='+encodeURIComponent(nm)+'&dept='+encodeURIComponent(effDept(room)), {credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(j){ box.innerHTML=renderDept(j); })
+      .catch(function(){ box.innerHTML='<div class="text-danger" style="font-size:0.8rem">Σφάλμα φόρτωσης δεδομένων.</div>'; });
+  }
+  function renderDept(j){
+    var h='<hr class="my-2">';
+    h+='<div class="fw-bold mb-1" style="font-size:0.9rem"><i class="bi bi-graph-up"></i> Δείκτες Ποιότητας</div>';
+    if(j.indicators && j.indicators.length){
+      h+='<table class="table table-sm mb-2" style="font-size:0.8rem"><tbody>';
+      j.indicators.forEach(function(i){
+        h+='<tr><td><strong>'+esc(i.code||'')+'</strong> '+esc(i.name||'')+'</td>'
+          +'<td class="text-end text-nowrap">'+(i.value!=null?esc(''+i.value)+' '+esc(i.unit||''):'—')
+          +(i.value!=null?' <span class="badge bg-'+esc(i.st_color)+'">'+esc(i.st_label)+'</span>':'')
+          +(i.period?'<div class="text-muted" style="font-size:0.7rem">'+esc(i.period)+'</div>':'')
+          +'</td></tr>';
+      });
+      h+='</tbody></table>';
+    } else { h+='<div class="text-muted mb-2" style="font-size:0.8rem">Δεν υπάρχουν δείκτες για το τμήμα.</div>'; }
+    h+=inspBlock('Τελευταία Επιθεώρηση Διαπίστευσης', j.accreditation);
+    h+=inspBlock('Τελευταία Επιθεώρηση Πιστοποίησης', j.certification);
+    return h;
+  }
+  function inspBlock(title, d){
+    var h='<div class="fw-bold mt-3 mb-1" style="font-size:0.9rem"><i class="bi bi-search"></i> '+title+'</div>';
+    if(!d){ return h+'<div class="text-muted" style="font-size:0.8rem">Καμία καταχωρημένη επιθεώρηση.</div>'; }
+    h+='<div style="font-size:0.82rem"><i class="bi bi-calendar"></i> Ημερομηνία: <strong>'+esc(d.date||'—')+'</strong></div>';
+    h+='<div style="font-size:0.82rem" class="mb-1">Ανοιχτές αποκλίσεις: <span class="badge bg-'+(d.open_count?'danger':'success')+'">'+d.open_count+'</span></div>';
+    if(d.open && d.open.length){
+      h+='<ul class="mb-0" style="font-size:0.78rem; padding-left:18px">';
+      d.open.forEach(function(o){ h+='<li>'+(o.proc?('<strong>'+esc(o.proc)+':</strong> '):'')+esc(o.criterion||'')+(o.target?(' <span class="text-muted">(έως '+esc(o.target)+')</span>'):'')+'</li>'; });
+      h+='</ul>';
+    }
+    return h;
+  }
+  function updateCounts(){
+    building.querySelectorAll('.floor').forEach(function(fl){
+      var n=fl.querySelectorAll('.room').length;
+      var c=fl.querySelector('.lvl .cnt'); if(c) c.textContent=n+' τμήμ.';
+    });
+    var sd=document.getElementById('statDepts'); if(sd) sd.textContent=building.querySelectorAll('.room').length;
+    updateCertCount();
+  }
+
+  function getAfter(container, x, y){
+    var els=[].slice.call(container.querySelectorAll('.room:not(.dragging)'));
+    var closest={dist:Infinity, el:null, before:true};
+    els.forEach(function(el){
+      var b=el.getBoundingClientRect(), cx=b.left+b.width/2, cy=b.top+b.height/2;
+      var d=Math.hypot(x-cx, y-cy);
+      if(d<closest.dist){ closest={dist:d, el:el, before:(x<cx)}; }
+    });
+    if(!closest.el) return null;
+    return closest.before ? closest.el : closest.el.nextSibling;
+  }
+
+  building.querySelectorAll('.room').forEach(bindRoom);
+  function bindRoom(r){
+    applyCerts(r);
+    r.addEventListener('click', function(){ showDetail(r); });
+    r.addEventListener('dragstart', function(e){ dragEl=r; r.classList.add('dragging'); try{e.dataTransfer.setData('text/plain','x'); e.dataTransfer.effectAllowed='move';}catch(_){} });
+    r.addEventListener('dragend', function(){ r.classList.remove('dragging'); dragEl=null; building.querySelectorAll('.rooms').forEach(function(z){z.classList.remove('drop-hot');}); });
+  }
+
+  building.querySelectorAll('.rooms').forEach(function(zone){
+    zone.addEventListener('dragover', function(e){
+      e.preventDefault();
+      if(!dragEl) return;
+      zone.classList.add('drop-hot');
+      var after=getAfter(zone, e.clientX, e.clientY);
+      if(after==null) zone.appendChild(dragEl);
+      else zone.insertBefore(dragEl, after);
+    });
+    zone.addEventListener('dragleave', function(e){ if(e.target===zone) zone.classList.remove('drop-hot'); });
+    zone.addEventListener('drop', function(e){ e.preventDefault(); zone.classList.remove('drop-hot'); updateCounts(); markDirty(); });
+  });
+
+  function collectFloors(){
+    var floors=[];
+    building.querySelectorAll('.floor').forEach(function(fl){
+      var depts=[];
+      fl.querySelectorAll('.room').forEach(function(r){ depts.push({name:r.getAttribute('data-name'), type:r.getAttribute('data-type'), department:(r.getAttribute('data-department')||''), certs:(r.getAttribute('data-certs')||'').split('|').filter(Boolean)}); });
+      floors.push({level:fl.getAttribute('data-level'), depts:depts});
+    });
+    return floors;
+  }
+  function persist(){
+    return fetch('{{ url_for("clinics_departments_save") }}', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(collectFloors())}).then(function(r){ return r.json(); });
+  }
+  function autoPersist(){ persist().then(function(j){ if(j && j.ok){ dirty.style.display='none'; } }).catch(function(){}); }
+  document.getElementById('saveLayout').addEventListener('click', function(){
+    var btn=this; btn.disabled=true; btn.innerHTML='<i class="bi bi-hourglass-split"></i> Αποθήκευση…';
+    persist()
+      .then(function(j){ if(j && j.ok){ dirty.style.display='none'; btn.innerHTML='<i class="bi bi-check2"></i> Αποθηκεύτηκε'; setTimeout(function(){ btn.innerHTML='<i class="bi bi-save"></i> Αποθήκευση διάταξης'; btn.disabled=false; },1400); } else { throw new Error('fail'); } })
+      .catch(function(){ btn.innerHTML='<i class="bi bi-x-circle"></i> Σφάλμα'; btn.disabled=false; });
+  });
+
+  // --- Νέο καρτελάκι ---
+  var TYPE_META = {{ type_meta|tojson }};
+  var ntSel=document.getElementById('newType'), nfSel=document.getElementById('newFloor');
+  Object.keys(TYPE_META).forEach(function(k){ var o=document.createElement('option'); o.value=k; o.textContent=TYPE_META[k][0]; ntSel.appendChild(o); });
+  building.querySelectorAll('.floor').forEach(function(fl){ var lv=fl.getAttribute('data-level'); var o=document.createElement('option'); o.value=lv; o.textContent=lv; nfSel.appendChild(o); });
+  document.getElementById('addRoom').addEventListener('click', function(){
+    document.getElementById('newName').value='';
+    [].slice.call(document.querySelectorAll('.newcert')).forEach(function(x){x.checked=false;});
+    new bootstrap.Modal(document.getElementById('addRoomModal')).show();
+  });
+  document.getElementById('addRoomConfirm').addEventListener('click', function(){
+    var type=ntSel.value, nm=(document.getElementById('newName').value||'').trim(), floor=nfSel.value;
+    if(!nm){ document.getElementById('newName').focus(); return; }
+    var m=TYPE_META[type];
+    var floorEl=[].slice.call(building.querySelectorAll('.floor')).filter(function(f){return f.getAttribute('data-level')===floor;})[0];
+    if(!floorEl) return;
+    var zone=floorEl.querySelector('.rooms');
+    var div=document.createElement('div');
+    div.className='room'; div.setAttribute('draggable', CAN_EDIT?'true':'false'); div.style.borderLeftColor=m[1];
+    div.setAttribute('data-name',nm); div.setAttribute('data-type',type);
+    div.setAttribute('data-cat',m[0]); div.setAttribute('data-color',m[1]);
+    div.setAttribute('data-icon',m[2]); div.setAttribute('data-department','');
+    div.setAttribute('data-certs', [].slice.call(document.querySelectorAll('.newcert:checked')).map(function(x){return x.value;}).join('|'));
+    div.innerHTML='<i class="bi bi-grip-vertical grip"></i><i class="bi '+m[2]+'" style="color:'+m[1]+'"></i> <span class="rname">'+esc(nm)+'</span>';
+    zone.appendChild(div);
+    bindRoom(div);
+    addDeptOption(nm);
+    updateCounts(); autoPersist();
+    var mi=bootstrap.Modal.getInstance(document.getElementById('addRoomModal')); if(mi) mi.hide();
+    showDetail(div);
+    div.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+
+  document.getElementById('delRoom').addEventListener('click', function(){
+    if(!selectedRoom) return;
+    if(!confirm('Διαγραφή «'+((selectedRoom.getAttribute('data-name')||'').trim())+'»;')) return;
+    selectedRoom.remove(); selectedRoom=null; this.style.display='none';
+    updateCounts(); autoPersist();
+    panel.innerHTML='<div class="text-center detail-empty py-4"><i class="bi bi-check2-circle" style="font-size:2rem;color:#198754"></i><div class="mt-2">Το τμήμα διαγράφηκε και αποθηκεύτηκε.</div></div>';
+  });
+})();
+</script>
+{% endblock %}

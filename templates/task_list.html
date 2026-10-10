@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Κατάλογος Εργασιών{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2 class="mb-0"><i class="bi bi-list-ul"></i> Κατάλογος Εργασιών</h2>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+<table class="table table-hover table-sm mb-0 align-middle" style="font-size:0.85rem">
+  <thead class="table-light"><tr>
+    <th>Κατηγορία</th><th>Εργασία</th><th>Περιγραφή</th><th>Ανάθεση</th><th>Προθεσμία</th><th>Αρχείο</th><th>Καταχωρήθηκε</th>
+    {% if is_admin %}<th class="text-end">Διαγραφή</th>{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for t in tasks %}
+  <tr>
+    <td>{{ t.category or '—' }}</td>
+    <td>{{ t.kind or '—' }}</td>
+    <td>{{ t.description or '—' }}</td>
+    <td>{{ t.assignee or '—' }}</td>
+    <td>{{ t.deadline or '—' }}</td>
+    <td>{% if t.file_stored %}<a href="{{ url_for('task_file', stored=t.file_stored) }}" target="_blank"><i class="bi bi-paperclip"></i> {{ t.file_orig or 'αρχείο' }}</a>{% else %}—{% endif %}</td>
+    <td class="text-muted" style="font-size:0.78rem">{{ t.created_at }}</td>
+    {% if is_admin %}
+    <td class="text-end">
+      <form method="post" action="{{ url_for('task_delete', tid=t.id) }}" class="d-inline"
+            onsubmit="return confirm('Διαγραφή της εργασίας; Η ενέργεια δεν αναιρείται.');">
+        <button type="submit" class="btn btn-sm btn-outline-danger" title="Διαγραφή"><i class="bi bi-trash"></i></button>
+      </form>
+    </td>
+    {% endif %}
+  </tr>
+  {% else %}
+  <tr><td colspan="{% if is_admin %}8{% else %}7{% endif %}" class="text-center text-muted py-3">Δεν υπάρχουν καταχωρημένες εργασίες.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div></div>
+{% endblock %}

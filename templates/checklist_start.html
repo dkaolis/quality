@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Έναρξη Επιθεώρησης{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-play-circle"></i> Έναρξη Επιθεώρησης</h2>
+    <div class="text-muted" style="font-size:0.88rem">
+      <i class="bi bi-hospital"></i> {{ ins.department or '—' }} ·
+      <i class="bi bi-calendar"></i> {{ ins.insp_date|fmtdate }} ·
+      <i class="bi bi-tag"></i> {{ ins.itype or '—' }}
+    </div>
+</div>
+
+{% if existing %}
+<div class="card mb-3">
+  <div class="card-header py-2"><i class="bi bi-hourglass-split"></i> Λίστες που έχεις ήδη ξεκινήσει γι' αυτή την επιθεώρηση</div>
+  <div class="card-body p-0"><table class="table table-hover mb-0 align-middle" style="font-size:0.9rem"><tbody>
+    {% for e in existing %}
+    <tr>
+      <td><span class="badge bg-primary">{{ e.code }}</span> {{ e.title }}
+          <span class="badge bg-{{ 'success' if e.status=='final' else 'secondary' }}">{{ 'Οριστική' if e.status=='final' else 'Πρόχειρο' }}</span></td>
+      <td class="text-end"><a href="{{ url_for('checklist_fill', inst_id=e.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> Συνέχεια</a></td>
+    </tr>
+    {% endfor %}
+  </tbody></table></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header py-2"><i class="bi bi-ui-checks"></i> Διάλεξε λίστα ελέγχου για χρήση</div>
+  <div class="card-body">
+    <div class="row g-3">
+    {% for t in templates %}
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100"><div class="card-body">
+          <span class="badge bg-primary">{{ t.code }}</span>
+          <h6 class="mt-2">{{ t.title }}</h6>
+          <form method="post" action="{{ url_for('checklist_create') }}">
+            <input type="hidden" name="template_id" value="{{ t.id }}">
+            <input type="hidden" name="inspection_id" value="{{ ins.id }}">
+            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check2-circle"></i> Χρήση αυτής</button>
+          </form>
+        </div></div>
+      </div>
+    {% else %}
+      <div class="col-12 text-muted">Δεν υπάρχουν διαθέσιμες λίστες ελέγχου.</div>
+    {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

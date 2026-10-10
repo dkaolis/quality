@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ list_title }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h2><i class="bi bi-card-checklist"></i> {{ list_title }}</h2>
+  <div class="d-flex gap-2">
+    <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Πίσω</a>
+    <a href="{{ new_url }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg"></i> Νέα Δραστηριότητα</a>
+  </div>
+</div>
+
+{% macro act_table(rows, is_admin, empty_msg) %}
+<div class="card mb-3"><div class="card-body p-0"><div class="table-responsive">
+<table class="table table-bordered align-middle mb-0" style="font-size:0.85rem">
+  <thead class="table-light"><tr>
+    <th>Κωδικός</th><th>Ημερομηνία</th><th>Τίτλος</th><th>Υπεύθυνος Δραστηριότητας</th>
+    <th style="min-width:230px">Παρουσιολόγιο</th><th>Ατζέντα</th><th style="white-space:nowrap">Κλήσεις / Απουσίες</th>{% if is_admin %}<th></th>{% endif %}
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td><strong>{{ r.a.code }}</strong></td>
+    <td>{{ r.a.act_date }}</td>
+    <td>{{ r.a.title }}{% if r.a.kind %}<br><span class="text-muted" style="font-size:0.74rem">{{ r.a.kind }}{% if r.a.frequency %} · {{ r.a.frequency }}{% endif %}</span>{% endif %}</td>
+    <td>{{ r.a.officer_name }}</td>
+    <td>
+      {% if r.att %}
+        {% if r.att_signed %}
+          <span><i class="bi bi-check-circle-fill text-success"></i> <a href="{{ url_for('qo_doc_view', did=r.att.id) }}" target="_blank">Άνοιγμα</a></span>
+        {% else %}
+          <a href="{{ url_for('qo_attendance_record', aid=r.a.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-check2-square"></i> Καταγραφή Παρουσιών</a>
+        {% endif %}
+        <div style="margin-top:4px">
+          {% if r.att.signed_file %}<a href="{{ url_for('qo_activity_signed_file', aid=r.a.id) }}" target="_blank" style="font-size:0.75rem"><i class="bi bi-file-earmark-check text-success"></i> Σκαναρισμένο</a>{% endif %}
+          <form method="post" action="{{ url_for('qo_activity_signed_upload', aid=r.a.id) }}" enctype="multipart/form-data" class="d-flex gap-1 mt-1">
+            <input type="file" name="signed" class="form-control form-control-sm" style="max-width:150px" accept=".pdf,.doc,.docx,.xls,.xlsx" required>
+            <button class="btn btn-sm btn-outline-secondary" title="Ανέβασμα σκαναρισμένου παρουσιολογίου"><i class="bi bi-upload"></i></button>
+          </form>
+        </div>
+      {% else %}<span class="text-muted">—</span>{% endif %}
+    </td>
+    <td>
+      {% if r.agenda %}<a href="{{ url_for('qo_doc_view', did=r.agenda.id) }}"><i class="bi bi-box-arrow-up-right"></i> Άνοιγμα</a>{% if r.ag_signed %} <i class="bi bi-check-circle-fill text-success" title="Υπογεγραμμένη"></i>{% endif %}{% else %}<span class="text-muted">—</span>{% endif %}
+    </td>
+    <td style="text-align:center">
+      <span class="badge rounded-pill bg-primary" title="Κλήσεις">{{ r.calls }}</span>
+      <span class="badge rounded-pill bg-danger" title="Απουσίες">{{ r.absences }}</span>
+    </td>
+    {% if is_admin %}
+    <td>
+      <form method="post" action="{{ url_for('qo_activity_delete', aid=r.a.id) }}" onsubmit="return confirm('Οριστική διαγραφή της δραστηριότητας «{{ r.a.title }}» και όλων των συνδεδεμένων εγγράφων; Δεν αναιρείται.');">
+        <button class="btn btn-sm btn-outline-danger" title="Διαγραφή"><i class="bi bi-trash"></i></button>
+      </form>
+    </td>
+    {% endif %}
+  </tr>
+  {% else %}
+  <tr><td colspan="{% if is_admin %}8{% else %}7{% endif %}" class="text-center text-muted py-4">{{ empty_msg }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div></div>
+{% endmacro %}
+
+{{ act_table(open_rows, is_admin, 'Δεν υπάρχουν ανοιχτές δραστηριότητες.') }}
+
+<h4 class="mt-4"><i class="bi bi-check2-all text-success"></i> Ολοκληρωμένες Δραστηριότητες</h4>
+{{ act_table(done_rows, is_admin, 'Δεν υπάρχουν ολοκληρωμένες δραστηριότητες.') }}
+{% endblock %}

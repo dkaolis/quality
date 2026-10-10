@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Κατάλογος Δραστηριοτήτων{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div class="d-flex align-items-start gap-2">
+    <i class="bi bi-activity" style="font-size:1.4rem; line-height:1.5"></i>
+    <div>
+      <h2 class="mb-0">Γενικό Νοσοκομείο Λευκωσίας - Μονάδα Διασφάλισης Ποιότητας</h2>
+      <div class="text-muted">Δραστηριότητες</div>
+    </div>
+  </div>
+  <a href="{{ url_for('activity_new') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-circle"></i> Νέα Δραστηριότητα</a>
+</div>
+
+{% if activities %}
+<div class="card"><div class="card-body p-0">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr>
+    <th>Τίτλος</th><th style="width:130px">Ημερομηνία</th><th style="width:220px">Διοργανωτής</th><th style="width:150px" class="text-center">Πολυμέσα</th>
+  </tr></thead>
+  <tbody>
+  {% for a in activities %}
+  <tr style="cursor:pointer" onclick="window.location='{{ url_for('activity_view', act_id=a.id) }}'">
+    <td><strong>{{ a.title }}</strong></td>
+    <td>{{ a.activity_date or '—' }}</td>
+    <td>{{ a.organizer or '—' }}</td>
+    <td class="text-center">
+      <span class="badge bg-secondary" title="Φωτογραφίες"><i class="bi bi-images"></i> {{ a.nphotos }}</span>
+      <span class="badge bg-info text-dark" title="Βίντεο"><i class="bi bi-camera-video"></i> {{ a.nvideos }}</span>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body text-muted">Δεν υπάρχουν καταχωρημένες δραστηριότητες. Πάτησε «Νέα Δραστηριότητα».</div></div>
+{% endif %}
+{% endblock %}

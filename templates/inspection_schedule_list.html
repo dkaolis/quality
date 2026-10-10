@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Προγραμματισμένες Επιθεωρήσεις{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-list-ul"></i> Προγραμματισμένες Επιθεωρήσεις</h2>
+    <a href="{{ url_for('inspection_schedule') }}" class="btn btn-outline-primary btn-action">
+        <i class="bi bi-calendar-week"></i> Ημερολόγιο
+    </a>
+</div>
+<div class="card"><div class="card-body p-0"><div class="table-responsive">
+  <table class="table table-hover mb-0 align-middle" style="font-size:0.86rem">
+    <thead><tr>
+      <th>Κωδικός</th><th>Ημερομηνία</th><th>Ώρα</th><th>Τμήμα</th><th>Αντικείμενο</th><th>Είδος</th><th>Επιθεωρητές</th><th>Υπογεγρ. Αναφορά</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for s in rows %}
+    <tr>
+      <td class="fw-bold text-primary">{{ s.code or '—' }}</td>
+      <td class="fw-semibold">{{ s.insp_date|fmtdate }}</td>
+      <td>{% if s.all_day %}<span class="badge bg-info">Ολοήμερη</span>{% else %}{{ s.start_time or '—' }}{% if s.end_time %}–{{ s.end_time }}{% endif %}{% endif %}</td>
+      <td>{{ s.department or '—' }}</td>
+      <td style="font-size:0.82rem">{{ s.scope or '—' }}</td>
+      <td>{{ s.itype or '—' }}</td>
+      <td style="font-size:0.82rem">{{ [s.inspector1, s.inspector2, s.inspector3]|select|join(', ') or '—' }}</td>
+      <td>
+        {% if s.signed_id %}
+        <a href="{{ url_for('document_open', doc_id=s.signed_id) }}" target="_blank" class="btn btn-sm btn-outline-success" title="{{ s.signed_name }}"><i class="bi bi-file-earmark-check"></i> Άνοιγμα</a>
+        {% else %}
+        <form method="post" action="{{ url_for('inspection_signed_upload', sid=s.id) }}" enctype="multipart/form-data" class="d-flex gap-1 align-items-center">
+          <input type="file" name="signed" accept=".pdf,.doc,.docx" class="form-control form-control-sm" style="width:150px" required>
+          <button type="submit" class="btn btn-sm btn-outline-primary" title="Ανέβασμα υπογεγραμμένης αναφοράς"><i class="bi bi-upload"></i></button>
+        </form>
+        {% endif %}
+      </td>
+      <td class="text-end text-nowrap">
+        {% if s.draft_id %}
+        <a href="{{ url_for('checklist_fill', inst_id=s.draft_id) }}" class="btn btn-sm btn-primary" title="Συνέχεια"><i class="bi bi-pencil-square"></i> Συνέχεια</a>
+        {% else %}
+        <a href="{{ url_for('inspection_schedule_start', sid=s.id) }}" class="btn btn-sm btn-success" title="Έναρξη Επιθεώρησης"><i class="bi bi-play-fill"></i> Έναρξη Επιθεώρησης</a>
+        {% endif %}
+        <form method="post" action="{{ url_for('inspection_schedule_delete', sid=s.id) }}" class="d-inline"
+              onsubmit="return confirm('Διαγραφή του προγραμματισμού;');">
+          <button type="submit" class="btn btn-sm btn-outline-danger" title="Διαγραφή"><i class="bi bi-trash"></i></button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="text-center text-muted py-3">Δεν υπάρχουν προγραμματισμένες επιθεωρήσεις.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div></div>
+{% endblock %}

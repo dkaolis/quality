@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Καταχώρηση Εργασίας{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2 class="mb-0"><i class="bi bi-pencil-square"></i> Καταχώρηση Εργασίας</h2>
+</div>
+<div class="card mb-3" style="max-width:820px"><div class="card-body">
+  <form method="post" enctype="multipart/form-data">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Κατηγορία</label>
+        <input type="text" name="category" class="form-control" list="catList" autocomplete="off" placeholder="Επίλεξε ή πληκτρολόγησε…">
+        <datalist id="catList">{% for c in categories %}<option value="{{ c }}"></option>{% endfor %}</datalist>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Εργασία</label>
+        <input type="text" name="kind" class="form-control" autocomplete="off">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Περιγραφή</label>
+        <textarea name="description" class="form-control" rows="3"></textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Ανάθεση</label>
+        <input type="text" name="assignee" class="form-control" list="assignList" autocomplete="off" placeholder="Επίλεξε ή πληκτρολόγησε…">
+        <datalist id="assignList">{% for a in assignees %}<option value="{{ a }}"></option>{% endfor %}</datalist>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Προθεσμία</label>
+        <input type="date" name="deadline" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Αρχείο <small class="text-muted">(π.χ. ατζέντα)</small></label>
+        <input type="file" name="attachment" class="form-control">
+      </div>
+    </div>
+    <div class="mt-3">
+      <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Αποθήκευση</button>
+    </div>
+  </form>
+</div></div>
+
+{% if recent %}
+<div class="card" style="max-width:1050px"><div class="card-body p-0"><div class="table-responsive">
+<table class="table table-hover table-sm mb-0 align-middle" style="font-size:0.85rem">
+  <thead class="table-light"><tr>
+    <th>Κατηγορία</th><th>Εργασία</th><th>Περιγραφή</th><th>Ανάθεση</th><th>Προθεσμία</th><th>Αρχείο</th><th>Καταχωρήθηκε</th>
+  </tr></thead>
+  <tbody>
+  {% for t in recent %}
+  <tr>
+    <td>{{ t.category or '—' }}</td>
+    <td>{{ t.kind or '—' }}</td>
+    <td>{{ t.description or '—' }}</td>
+    <td>{{ t.assignee or '—' }}</td>
+    <td>{{ t.deadline or '—' }}</td>
+    <td>{% if t.file_stored %}<a href="{{ url_for('task_file', stored=t.file_stored) }}" target="_blank"><i class="bi bi-paperclip"></i> {{ t.file_orig or 'αρχείο' }}</a>{% else %}—{% endif %}</td>
+    <td class="text-muted" style="font-size:0.78rem">{{ t.created_at }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div></div>
+{% endif %}
+{% endblock %}

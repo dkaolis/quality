@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Administrator — Λίστες Επιλογών{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-card-list"></i> Λίστες Επιλογών (Dropdowns)</h2>
+    <div class="text-muted" style="font-size:0.85rem">Καθαρισμός/διαχείριση των τιμών που εμφανίζονται στα dropdown (Τμήματα & Επιθεωρητές).</div>
+</div>
+
+<div class="row g-3">
+  {% set lists = [('departments', 'Επιθεωρούμενα Τμήματα', departments, 'bi-hospital'),
+                  ('inspectors', 'Επιθεωρητές', inspectors, 'bi-people')] %}
+  {% for key, title, items, icon in lists %}
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi {{ icon }}"></i> {{ title }} <span class="badge bg-secondary">{{ items|length }}</span></span>
+        {% if items %}
+        <form method="post" action="{{ url_for('administrator_list_clear', which=key) }}"
+              onsubmit="return confirm('Καθαρισμός ΟΛΩΝ των τιμών «{{ title }}»;');">
+          <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Καθαρισμός όλων</button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover table-sm mb-0 align-middle" style="font-size:0.87rem">
+          <tbody>
+          {% for it in items %}
+          <tr>
+            <td>{{ it.name }}</td>
+            <td class="text-end" style="width:60px">
+              <form method="post" action="{{ url_for('administrator_list_delete', which=key, item_id=it.id) }}"
+                    onsubmit="return confirm('Διαγραφή «{{ it.name }}»;');">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Διαγραφή"><i class="bi bi-x-lg"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td class="text-center text-muted py-3">Κενή λίστα.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="text-muted mt-3" style="font-size:0.8rem">
+  <i class="bi bi-info-circle"></i> Οι τιμές προστίθενται αυτόματα όταν πληκτρολογείς νέο τμήμα/επιθεωρητή στον Προγραμματισμό Επιθεωρήσεων.
+</div>
+{% endblock %}

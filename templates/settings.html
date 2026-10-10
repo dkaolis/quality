@@ -27,6 +27,40 @@
                     <input type="number" name="session_timeout" class="form-control" min="10" value="{{ settings.session_timeout }}">
                 </div>
             </div>
+            <hr class="my-4">
+            <h6 class="text-muted mb-3"><i class="bi bi-envelope"></i> Email (SMTP) — για αυτόματα μηνύματα σε νέους χρήστες</h6>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label">SMTP host</label>
+                    <input type="text" name="smtp_host" class="form-control" value="{{ settings.smtp_host }}" placeholder="π.χ. smtp.gmail.com">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Θύρα</label>
+                    <input type="number" name="smtp_port" class="form-control" value="{{ settings.smtp_port }}" placeholder="587">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Χρήστης SMTP</label>
+                    <input type="text" name="smtp_user" class="form-control" value="{{ settings.smtp_user }}" autocomplete="off">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Κωδικός SMTP</label>
+                    <input type="password" name="smtp_pass" class="form-control" autocomplete="new-password" placeholder="{% if settings.smtp_pass %}(αμετάβλητος — γράψε για αλλαγή){% endif %}">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Αποστολέας (From)</label>
+                    <input type="text" name="smtp_from" class="form-control" value="{{ settings.smtp_from }}" placeholder="eQuality &lt;no-reply@okypy.gov.cy&gt;">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="smtp_tls" id="smtp_tls" {% if settings.smtp_tls == '1' %}checked{% endif %}>
+                        <label class="form-check-label" for="smtp_tls">STARTTLS</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Base URL εφαρμογής (για τα links στα email)</label>
+                    <input type="text" name="base_url" class="form-control" value="{{ settings.base_url }}" placeholder="https://quality.shso.online">
+                </div>
+            </div>
             <div class="mt-4">
                 <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Αποθήκευση</button>
             </div>
